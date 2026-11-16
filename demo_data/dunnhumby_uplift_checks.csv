@@ -1,0 +1,3 @@
+check,mean_spend_effect,mean_buy_prob_effect_pp,campaigns
+Pre-trend (should be ~0),22.7809,2.0919,29
+Placebo / random targeting (should be ~0),-0.8463,-0.1956,29

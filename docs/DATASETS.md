@@ -1,5 +1,7 @@
 # Extra datasets to extend the project
 
+**Status:** Dunnhumby is downloaded and analysed (`src/campaign_uplift.py`). Online Retail II and the multi-category store dataset are supported by code but not yet run on real data.
+
 None of these can be merged with the cosmetics store (different customers, different brands). Their value is to **test whether the methods hold elsewhere** and to cover things this dataset cannot (a longer time window, returns, promotions). Put downloads in `data_external/` (git-ignored).
 
 Check each page's licence/terms and file names before downloading; versions on Kaggle change.

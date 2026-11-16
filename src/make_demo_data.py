@@ -16,7 +16,8 @@ AGGREGATES = [
     "segment_revenue_analysis", "monthly_customer_behavior", "repeat_purchase_summary", "cohort_retention",
     "conversion_funnel", "model_metrics", "model_deciles", "model_feature_importance", "brand_affinity",
     "conversion_model_metrics", "conversion_model_deciles", "clv_validation", "clv_validation_deciles",
-    "shap_importance", "brand_funnel",
+    "shap_importance", "brand_funnel", "dunnhumby_campaign_uplift", "dunnhumby_uplift_summary",
+    "dunnhumby_uplift_checks", "model_library_comparison",
 ]
 CUSTOMER_LEVEL = ["rfm_customer_segments", "customer_retention_scores", "customer_clv", "winback_reasons"]
 

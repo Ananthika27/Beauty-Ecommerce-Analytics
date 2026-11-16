@@ -1,0 +1,4 @@
+model,test_roc_auc_default,test_roc_auc_tuned,ci_low,ci_high,test_pr_auc_tuned,top_decile_lift_tuned,val_auc_default,val_auc_best,best_params,seconds
+sklearn HistGradientBoosting,0.8264,0.8264,0.8218,0.8307,0.3861,4.56,0.7941,0.7941,"{'depth': 4, 'lr': 0.06, 'n': 300, 'l2': 1.0, 'min_leaf': 20}",26
+LightGBM,0.8261,0.8251,0.8201,0.8292,0.3848,4.53,0.7898,0.7946,"{'depth': 4, 'lr': 0.022919204616794083, 'n': 150, 'l2': 0.10307735394055625, 'min_leaf': 200}",28
+XGBoost,0.8261,0.825,0.82,0.8291,0.3846,4.53,0.7906,0.7952,"{'depth': 4, 'lr': 0.022919204616794083, 'n': 150, 'l2': 0.10307735394055625, 'min_leaf': 200}",15

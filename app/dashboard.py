@@ -38,8 +38,8 @@ c2.metric("Revenue", f"{total_rev:,.0f}")
 c3.metric("Repeat customers", f"{repeat_row['customer_percentage']:.1f}%")
 c4.metric("Revenue from repeaters", f"{repeat_row['revenue_percentage']:.1f}%")
 
-tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_roi, tab_browse, tab_brand = st.tabs(
-    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Campaign ROI", "Browser conversion", "Brand affinity"]
+tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_uplift, tab_roi, tab_browse, tab_brand = st.tabs(
+    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Measured uplift", "Campaign ROI", "Browser conversion", "Brand affinity"]
 )
 
 with tab_seg:
@@ -119,9 +119,27 @@ with tab_clv:
     st.write(f"Predicted 90-day value of selection: {sel['pred_value'].sum():,.0f}")
     st.dataframe(sel[["user_id", "segment", "prob_alive", "pred_orders", "pred_order_value", "pred_value"]].head(500), hide_index=True, width="stretch")
 
+with tab_uplift:
+    st.subheader("What did targeted campaigns actually do? (Dunnhumby Complete Journey)")
+    st.caption("A different retailer (grocery, 30 campaigns, 2,500 households) used because the cosmetics data has no campaign records.")
+    up_sum = load("dunnhumby_uplift_summary")
+    allc = up_sum[up_sum["group"] == "All campaigns"].iloc[0]
+    u1, u2, u3 = st.columns(3)
+    u1.metric("Naive uplift in spend", f"+{allc['relative_uplift_pct']:.0f}%", f"{allc['avg_uplift_spend_per_household']:.0f} per household", delta_color="off")
+    u2.metric("Adjusted for pre-existing trend", f"{allc['adj_relative_uplift_pct']:+.1f}%", f"{allc['adj_uplift_spend_per_household']:+.1f} per household", delta_color="off")
+    u3.metric("Buying-probability uplift (naive / adjusted)", f"{allc['avg_uplift_buy_prob_pp']:+.1f} / {allc['adj_uplift_buy_prob_pp']:+.1f} pp")
+    st.warning("Targeted households were already spending more before campaigns started (pre-trend check +22.8), so the naive number is inflated. "
+               "After adjusting, the evidence for a spend increase is close to zero. Targeting was not randomised: treat this as a range, not a measurement.")
+    st.write("**Sanity checks** (both should be near zero for a trustworthy method)")
+    st.dataframe(load("dunnhumby_uplift_checks"), hide_index=True, width="stretch")
+    st.write("**By campaign type**")
+    st.dataframe(up_sum.round(2), hide_index=True, width="stretch")
+    st.write("**Each campaign**")
+    st.dataframe(load("dunnhumby_campaign_uplift").round(2), hide_index=True, width="stretch")
+
 with tab_roi:
     st.subheader("Is a retention campaign worth it?")
-    st.warning("The dataset has no margin or campaign-cost data. These sliders are assumptions you set, not facts from the data.")
+    st.warning("The cosmetics data has no margin or campaign-cost data. These sliders are assumptions you set. For reference, the Dunnhumby analysis suggests real uplift between about 0 (trend-adjusted) and +2.4 points of buying probability (naive).")
     roi_scores = load("customer_retention_scores").merge(load("rfm_customer_segments")[["user_id", "segment"]], on="user_id")
     a, b, c = st.columns(3)
     margin = a.slider("Gross margin", 0.05, 0.80, 0.30, 0.05)

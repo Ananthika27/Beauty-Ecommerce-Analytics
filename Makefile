@@ -1,4 +1,4 @@
-.PHONY: all pipeline model conversion clv explain basket charts powerbi demo app test docker
+.PHONY: all pipeline model conversion uplift compare clv explain basket charts powerbi demo app test docker
 all: pipeline model conversion clv explain basket charts powerbi demo
 
 pipeline:    ## clean raw data, build analysis tables
@@ -7,6 +7,10 @@ model:       ## next-month purchase model for buyers
 	python src/churn_model.py
 conversion:  ## first-purchase model for browsers
 	python src/conversion_model.py
+uplift:      ## measured campaign uplift (needs data_external/dunnhumby)
+	python -I src/campaign_uplift.py
+compare:     ## LightGBM / XGBoost / sklearn comparison
+	python src/model_comparison.py
 clv:         ## customer lifetime value (BG/NBD)
 	python src/clv.py
 explain:     ## SHAP explanations

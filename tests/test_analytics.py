@@ -160,3 +160,18 @@ def test_clv_runs_and_ranks_frequent_buyers_higher():
     metrics, deciles = clv.evaluate_holdout(tx, pd.Timestamp("2019-06-30"), pd.Timestamp("2019-08-28"))
     assert metrics["correlation_bgnbd"] > 0.3
     assert deciles["actual_value"].iloc[0] > deciles["actual_value"].iloc[-1]
+
+
+def test_uplift_estimator_recovers_known_effect_and_zero_placebo():
+    import numpy as np
+    import campaign_uplift as cu
+    rng = np.random.default_rng(0)
+    n = 3000
+    base = rng.gamma(2, 50, n)                              # household baseline spend
+    treated = rng.random(n) < 0.3
+    pre = base + rng.normal(0, 10, n)
+    post = base + rng.normal(0, 10, n) + np.where(treated, 20.0, 0.0)   # true effect = +20
+    strata = cu.make_strata(pre)
+    assert cu.stratified_did(post - pre, treated, strata) == pytest.approx(20.0, abs=3.0)
+    fake = rng.random(n) < 0.3                              # random "targeting": no effect
+    assert abs(cu.stratified_did(post - pre, fake, strata)) < 3.0

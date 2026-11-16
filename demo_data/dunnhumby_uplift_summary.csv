@@ -1,0 +1,5 @@
+campaigns,campaigns_with_pretrend,adj_uplift_spend_per_household,adj_uplift_buy_prob_pp,avg_uplift_spend_per_household,avg_uplift_buy_prob_pp,avg_control_spend,avg_control_buy_rate,campaigns_with_significant_uplift,group,relative_uplift_pct,adj_relative_uplift_pct
+29.0,29.0,0.1493,-0.369,40.4565,2.3857,168.6913,0.8207,14.0,All campaigns,23.9826,0.0885
+5.0,5.0,-5.2595,-0.647,42.5516,2.5671,149.5103,0.8066,4.0,TypeA,28.4607,-3.5178
+18.0,18.0,-0.3978,-0.0181,32.7066,2.4046,168.411,0.8269,9.0,TypeB,19.4207,-0.2362
+6.0,6.0,40.0786,-0.0032,60.4294,1.0445,302.9028,0.8907,1.0,TypeC,19.9501,13.2315

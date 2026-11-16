@@ -109,3 +109,25 @@ ax.set_xlabel("Predicted-value decile (1 = highest)"); ax.set_ylabel("Spend in J
 ax.set_title("Lifetime value model: predicted vs actual spend (holdout)"); ax.legend(frameon=False)
 save(fig, "clv_validation.png")
 print("CLV chart saved")
+
+# ---- measured campaign uplift (Dunnhumby) ----
+up = pd.read_csv(OUT / "dunnhumby_campaign_uplift.csv")
+fig, ax = plt.subplots(figsize=(6.5, 5))
+ax.scatter(up["pretrend_spend"], up["uplift_spend_per_household"], s=up["targeted_households"] / 6 + 15, color=BLUE, alpha=0.7)
+lims = [min(up["pretrend_spend"].min(), up["uplift_spend_per_household"].min()), max(up["pretrend_spend"].max(), up["uplift_spend_per_household"].max())]
+ax.plot(lims, lims, color="#d9822b", ls="--", label="Uplift = pre-existing trend (true effect 0)")
+ax.set_xlabel("Targeted households' extra spend BEFORE the campaign")
+ax.set_ylabel("Targeted households' extra spend DURING the campaign")
+ax.set_xlim(-130, 140); ax.set_ylim(-130, 140)
+ax.set_title("Campaign uplift vs pre-existing trend (29 campaigns; 3 outliers off-scale)"); ax.legend(frameon=False, loc="upper left")
+save(fig, "campaign_uplift.png")
+
+lib = pd.read_csv(OUT / "model_library_comparison.csv")
+fig, ax = plt.subplots(figsize=(7, 3.2))
+x = range(len(lib))
+ax.bar([i - 0.2 for i in x], lib["test_roc_auc_default"], 0.4, color=GREY, label="Default settings")
+ax.bar([i + 0.2 for i in x], lib["test_roc_auc_tuned"], 0.4, color=BLUE, label="Tuned")
+ax.set_xticks(list(x)); ax.set_xticklabels(lib["model"]); ax.set_ylim(0.8, 0.84); ax.set_ylabel("ROC-AUC (Feb 2020)")
+ax.set_title("Algorithm choice barely matters"); ax.legend(frameon=False)
+save(fig, "library_comparison.png")
+print("Uplift + library charts saved")

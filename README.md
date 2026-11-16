@@ -81,6 +81,68 @@ The model ranks customers well but over-predicts totals, for the same reason the
 - Of **983,953 sessions with an item in the cart, 857,691 (87%) ended without a purchase**.
 - Cart-to-purchase conversion varies a lot by brand: `severina` converts 34%, `swarovski` 27% and `farmstay` 23%, while `kosmekka` converts only 12% and `babyliss` 12% (`outputs/brand_funnel.csv`, brands with 5,000+ views). Weak converters are candidates for pricing, content or stock review.
 
+## Measured campaign uplift (Dunnhumby "Complete Journey")
+
+The cosmetics data has no marketing records, so campaign ROI there could only use *assumed* uplift. To replace the assumption with evidence, I used a second dataset, **Dunnhumby's Complete Journey** (a grocery retailer: 2,500 households, 30 campaigns, 2 years, with the list of households each campaign targeted). For each campaign I compared targeted vs non-targeted households before and after (difference-in-differences, matched within quintiles of past spend, bootstrap confidence intervals).
+
+![Uplift](images/campaign_uplift.png)
+
+| Estimate (29 campaigns) | Spend per targeted household | Probability of buying |
+| --- | ---: | ---: |
+| Naive before/after comparison | **+40 (+24%)** | **+2.4 pp** |
+| Adjusted for pre-existing trend | **+0.1 (about 0%)** | **-0.4 pp** |
+
+- **The naive result looks great and is misleading.** The validation checks show why: a *placebo test* (random fake targeting) gives about zero, which is good, but a *pre-trend test* does not: targeted households were already spending **22.8 more** than others **before** the campaigns started. Campaigns were aimed at households that were already growing, so most of the apparent lift is selection, not effect.
+- **After adjusting, there is little reliable evidence that campaigns raised spend.** In the naive test 14 of 29 campaigns individually have a confidence interval above zero; after subtracting each campaign's own pre-trend the results scatter on both sides of zero (15 of 29 are positive). Targeting was not randomised, so the truth lies somewhere between the two columns. Treat it as a range, not a measurement.
+- **Implication for the cosmetics store:** the break-even uplift for a retention campaign (a few points of purchase probability at typical margins) is above the measured range. This supports *small, tested campaigns with a holdout group* before spending broadly. A randomised holdout is the only way to know.
+- **Caveat:** different industry and country, so this is an empirical reference for the Campaign ROI sliders, not a forecast for cosmetics.
+
+## Campaign economics
+
+The cosmetics data has no margin or campaign-cost data, so `src/economics.py` and the dashboard's **Campaign ROI** tab treat them as *adjustable assumptions*. The useful, assumption-light output is the **break-even uplift**: how many extra points of purchase probability a campaign needs to pay for itself. With a 30% margin and a contact cost of 0.30, only High Value Lost customers clear break-even at a 2-point uplift; broad campaigns to Regular and New customers lose money. Compare those required uplifts with the measured range above.
+
+## Does the choice of algorithm matter?
+
+I compared sklearn's HistGradientBoosting, **LightGBM** and **XGBoost**, each with a 12-trial random hyperparameter search. Tuning used the January snapshot, and February was evaluated once at the end.
+
+![Libraries](images/library_comparison.png)
+
+| Model | Default AUC | Tuned AUC (95% CI) |
+| --- | ---: | ---: |
+| sklearn HistGradientBoosting | 0.826 | 0.826 (0.822–0.831) |
+| LightGBM | 0.826 | 0.825 (0.820–0.829) |
+| XGBoost | 0.826 | 0.825 (0.820–0.829) |
+
+All three are statistically indistinguishable, and tuning did not help on the held-out month (it improved January, then did not carry over). **The gain comes from the features, not the algorithm**, which is why the browsing data mattered and the model choice did not.
+
+## Explaining the predictions (SHAP)
+
+A score alone doesn't tell a marketer what to do, so the model is explained with SHAP values.
+
+![SHAP](images/shap_summary.png)
+
+- **Globally:** the most recent activity dominates. Customers who were active on the site recently get a higher purchase probability, and those who went quiet get a lower one. More active days, recent carts and longer tenure all push the probability up.
+- **Per customer:** `outputs/winback_reasons.csv` lists the top 3 factors dragging down each of the 3,000 highest-value win-back customers. For 86% of them the main reason is simply days since last activity. The dashboard shows these reasons beside the target list.
+
+## Customer lifetime value (BG/NBD + Gamma-Gamma)
+
+Predicts how many orders and how much spend each customer will generate over the next 90 days, and the probability each is still "alive". It is fitted on Oct–Dec 2019 and validated on what customers actually did in Jan–Feb 2020.
+
+![CLV](images/clv_validation.png)
+
+| Check (60-day holdout) | Result |
+| --- | --- |
+| Correlation with actual orders | **0.53** (naive "same rate as before" baseline: 0.42) |
+| Top 10% by predicted value | account for **50%** of actual holdout spend |
+| Total orders | predicted 22,814 vs actual 17,533 (**over-predicts by 30%**) |
+
+The model ranks customers well but over-predicts totals, for the same reason the retention model does: the customer base keeps filling with newer, less loyal buyers. Use it to rank and prioritise, not to forecast revenue. The next 90 days are predicted at about 1.29M in total (`outputs/customer_clv.csv`).
+
+## Cart abandonment and brand conversion
+
+- Of **983,953 sessions with an item in the cart, 857,691 (87%) ended without a purchase**.
+- Cart-to-purchase conversion varies a lot by brand: `severina` converts 34%, `swarovski` 27% and `farmstay` 23%, while `kosmekka` converts only 12% and `babyliss` 12% (`outputs/brand_funnel.csv`, brands with 5,000+ views). Weak converters are candidates for pricing, content or stock review.
+
 ## Campaign economics
 
 The dataset has no margin or campaign-cost data, so `src/economics.py` and the dashboard's **Campaign ROI** tab treat them as *adjustable assumptions*. The useful, assumption-light output is the **break-even uplift**: how many extra points of purchase probability a campaign needs to pay for itself. With a 30% margin and a contact cost of 0.30, only High Value Lost customers clear break-even at a 2-point uplift; broad campaigns to Regular and New customers lose money. This is the quantitative case for targeting.
@@ -160,7 +222,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 ## Engineering practices
 
 - **Reproducible:** one command rebuilds every table and chart from the raw files.
-- **Tested:** 20 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
+- **Tested:** 21 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
 - **Validated inputs:** the pipeline checks the schema, event types and the share of unusable rows and stops with a clear error instead of producing wrong numbers.
 - **Portable:** `Dockerfile` for one-command runs, and `python src/pipeline.py --data-dir ... --out-dir ...` to run on another dataset with the same schema.
 - **Deployable demo:** `demo_data/` lets the dashboard run anywhere without the 2.4 GB raw data (for example Streamlit Community Cloud with main file `app/dashboard.py`).
@@ -169,7 +231,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 
 ## Data and method notes
 
-- **Source:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events.
+- **Sources:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events (main analysis); *Dunnhumby The Complete Journey* (Kaggle) for the campaign-uplift analysis only. The two datasets are never merged.
 - **Cleaning:** removed 104,288 rows with non-positive prices, 4,597 with no session ID and 898 duplicate purchases, leaving **1,285,982 purchase rows** across 110,518 customers.
 - **Orders vs items:** each purchase row is one item, so an *order* is a distinct `user_session`. Counting items would badly overstate repeat buying.
 - **Revenue** is the sum of item prices on purchase events (the dataset does not state a currency). Timestamps are UTC.
@@ -177,7 +239,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
   - *Only five months of data:* cannot be fixed without more data (the only source is this Kaggle dataset). Instead, all model results come from a true out-of-time test with bootstrap confidence intervals, and "lost" customers are defined by recency within this window.
   - *Data unused before:* 19.4M view/cart events were ignored. They now drive the browsing features (+0.058 AUC), the browser model, cart-abandonment and brand-conversion analysis.
   - *Categories:* `category_code` is missing for about 96% of revenue and cannot be recovered, so brand is used as the product dimension; price tiers were tested but did not separate segments (about 70% of sales are premium-tier in every segment).
-  - *No margin or campaign cost:* replaced by explicit, adjustable assumptions and a break-even calculation, never presented as fact.
+  - *No campaign records:* uplift was measured on a second dataset (Dunnhumby) with placebo and pre-trend checks. It showed that naive estimates are heavily inflated by selection. *No margin or campaign cost* remain explicit, adjustable assumptions.
   - *No currency stated:* amounts are in the dataset's own price units.
   - *Falling base rate (model scores run high):* rate rescaling plus a slider; scores are for ranking.
   - *Window edge:* customers whose first purchase predates October 2019 appear as "new". Revenue is not profit.
@@ -189,6 +251,8 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 │   ├── pipeline.py        # clean data + build all analysis tables
 │   ├── churn_model.py     # next-month purchase model for buyers
 │   ├── conversion_model.py# first-purchase model for browsers
+│   ├── campaign_uplift.py # measured uplift (Dunnhumby, diff-in-diff)
+│   ├── model_comparison.py# LightGBM / XGBoost / sklearn + tuning
 │   ├── clv.py             # lifetime value (BG/NBD + Gamma-Gamma)
 │   ├── explain.py         # SHAP explanations
 │   ├── economics.py       # campaign break-even / ROI (assumption-driven)
@@ -221,7 +285,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 pip install -r requirements.txt
 # download the dataset from Kaggle and place the five monthly CSVs in data/
 make all                   # pipeline -> models -> basket -> charts -> Power BI tables (about 10 minutes)
-make test                  # 20 unit tests
+make test                  # 21 unit tests
 make app                   # interactive dashboard
 make docker                # or run the dashboard in Docker (uses the demo sample)
 ```
