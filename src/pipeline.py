@@ -242,7 +242,7 @@ def main():
     engagement.to_parquet(ENGAGEMENT, index=False)
 
     purchases.drop(columns=["event_type"]).to_parquet(PROCESSED, index=False)
-    print(f"Saved cleaned purchases to {PROCESSED.relative_to(ROOT)}")
+    print(f"Saved cleaned purchases to {PROCESSED}")
 
     print("\nData quality summary")
     for key, value in qa.items():
@@ -279,7 +279,7 @@ def main():
     }
     for name, table in tables.items():
         table.to_csv(OUT_DIR / f"{name}.csv", index=False)
-        print(f"Wrote outputs/{name}.csv ({len(table):,} rows)")
+        print(f"Wrote {(OUT_DIR / (name + '.csv')).name} to {OUT_DIR} ({len(table):,} rows)")
 
 
 if __name__ == "__main__":
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR, help="folder with the monthly event CSVs")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR, help="where to write the analysis tables")
     args = parser.parse_args()
-    DATA_DIR, OUT_DIR = args.data_dir, args.out_dir
+    DATA_DIR, OUT_DIR = args.data_dir.resolve(), args.out_dir.resolve()
     PROCESSED = DATA_DIR / "processed" / "purchases.parquet"
     ENGAGEMENT = DATA_DIR / "processed" / "engagement_daily.parquet"
     main()

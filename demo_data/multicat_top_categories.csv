@@ -1,0 +1,16 @@
+group,items_sold,revenue,share_of_covered_revenue_pct
+electronics.smartphone,720625,334855345.68,74.03
+appliances.kitchen,109458,24318658.5,5.38
+electronics.video,52015,20971548.55,4.64
+computers.notebook,34021,19657313.13,4.35
+electronics.clocks,41140,11369826.29,2.51
+electronics.audio,81892,10548088.99,2.33
+appliances.environment,44048,5998966.69,1.33
+electronics.tablet,11740,3131170.42,0.69
+furniture.living_room,8386,2676618.37,0.59
+computers.desktop,7013,2673459.68,0.59
+auto.accessories,21338,2648960.53,0.59
+construction.tools,15815,1973689.08,0.44
+computers.peripherals,11600,1761963.8,0.39
+apparel.shoes,19609,1632214.43,0.36
+computers.components,8968,1167403.06,0.26

@@ -33,6 +33,9 @@ def main():
         keep = table[table["user_id"].isin(ids)] if name != "winback_reasons" else table.head(300)
         keep.to_csv(DEMO / f"{name}.csv", index=False)
 
+    for name in ["generalization_summary", "generalization_model", "top_categories", "category_coverage"]:
+        pd.read_csv(OUT / "multicat" / f"{name}.csv").to_csv(DEMO / f"multicat_{name}.csv", index=False)
+
     browsers = pd.read_csv(OUT / "browser_conversion_scores.csv").nlargest(2000, "conversion_probability")
     browsers.to_csv(DEMO / "browser_conversion_scores.csv", index=False)
 

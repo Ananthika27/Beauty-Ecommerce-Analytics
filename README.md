@@ -76,6 +76,25 @@ Predicts how many orders and how much spend each customer will generate over the
 
 The model ranks customers well but over-predicts totals, for the same reason the retention model does: the customer base keeps filling with newer, less loyal buyers. Use it to rank and prioritise, not to forecast revenue. The next 90 days are predicted at about 1.29M in total (`outputs/customer_clv.csv`).
 
+## Do the findings generalise? A second store
+
+I ran the same pipeline, unchanged, on a **different retailer**: the Kaggle *multi-category store* data (mostly electronics, Oct–Nov 2019, 20M+ sessions, 697,470 customers). It is a different business, so the point is whether the *patterns* hold, not whether the numbers match.
+
+| | Cosmetics (5 months) | Multi-category (2 months) |
+| --- | ---: | ---: |
+| Customers | 110,518 | 697,470 |
+| Single-order customers | 78.9% | 63.2% |
+| Revenue from repeat customers | 48.0% | 73.8% |
+| Viewers who purchase | 6.9% | 13.1% |
+| Cart sessions abandoned | 87.2% | 59.4% |
+
+- **Holds:** most customers buy once in both stores, and repeat customers carry a large share of revenue.
+- **Differs a lot:** the electronics store converts about twice as well and abandons far fewer carts (high-ticket phones are bought deliberately; cosmetics are browsed). The single-order share is also not like-for-like, because two months is a shorter window than five.
+- **Browsing data helps again, but less.** Using the same features and a 50/50 random customer split (only two months exist, so an out-of-time test is impossible and this is a weaker test): purchase features only 0.664 AUC (0.661–0.666), with browsing features **0.694 (0.692–0.697)**. The direction replicates; the size of the gain does not (+0.03 here vs +0.06 on cosmetics).
+- **Real category names exist here:** 89.5% of this store's revenue carries a `category_code`, against about 4% for cosmetics. Smartphones are 74% of categorised revenue, which also shows how different the businesses are.
+
+Outputs: `outputs/multicat/`. Reproduce with `python src/pipeline.py --data-dir data_external/multicat --out-dir outputs/multicat` then `python src/generalization_check.py`.
+
 ## Cart abandonment and brand conversion
 
 - Of **983,953 sessions with an item in the cart, 857,691 (87%) ended without a purchase**.
@@ -224,21 +243,21 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 - **Reproducible:** one command rebuilds every table and chart from the raw files.
 - **Tested:** 21 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
 - **Validated inputs:** the pipeline checks the schema, event types and the share of unusable rows and stops with a clear error instead of producing wrong numbers.
-- **Portable:** `Dockerfile` for one-command runs, and `python src/pipeline.py --data-dir ... --out-dir ...` to run on another dataset with the same schema.
+- **Portable:** `Dockerfile` for one-command runs (image built, dashboard served and all tests passed inside the container), and `python src/pipeline.py --data-dir ... --out-dir ...` to run on another dataset with the same schema.
 - **Deployable demo:** `demo_data/` lets the dashboard run anywhere without the 2.4 GB raw data (for example Streamlit Community Cloud with main file `app/dashboard.py`).
 - **Memory-safe:** the 2.4 GB raw data is streamed in chunks; cleaned purchases are cached as Parquet.
 - **Honest evaluation:** out-of-time test set, simple baselines, an ablation (with/without browsing data), bootstrap confidence intervals, and calibration caveats stated.
 
 ## Data and method notes
 
-- **Sources:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events (main analysis); *Dunnhumby The Complete Journey* (Kaggle) for the campaign-uplift analysis only. The two datasets are never merged.
+- **Sources:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events (main analysis); *Dunnhumby The Complete Journey* (Kaggle) for the campaign-uplift analysis only; and the *multi-category store* (Kaggle) for a generalisation check only. The datasets are never merged.
 - **Cleaning:** removed 104,288 rows with non-positive prices, 4,597 with no session ID and 898 duplicate purchases, leaving **1,285,982 purchase rows** across 110,518 customers.
 - **Orders vs items:** each purchase row is one item, so an *order* is a distinct `user_session`. Counting items would badly overstate repeat buying.
 - **Revenue** is the sum of item prices on purchase events (the dataset does not state a currency). Timestamps are UTC.
 - **Limitations, and how each was handled:**
-  - *Only five months of data:* cannot be fixed without more data (the only source is this Kaggle dataset). Instead, all model results come from a true out-of-time test with bootstrap confidence intervals, and "lost" customers are defined by recency within this window.
+  - *Only five months of data:* no longer-running cosmetics data exists in this source, so instead the main findings were checked on a second store, all model results come from a true out-of-time test with bootstrap confidence intervals, and "lost" customers are defined by recency within this window.
   - *Data unused before:* 19.4M view/cart events were ignored. They now drive the browsing features (+0.058 AUC), the browser model, cart-abandonment and brand-conversion analysis.
-  - *Categories:* `category_code` is missing for about 96% of revenue and cannot be recovered, so brand is used as the product dimension; price tiers were tested but did not separate segments (about 70% of sales are premium-tier in every segment).
+  - *Categories:* `category_code` is missing for about 96% of cosmetics revenue and cannot be recovered, so brand is used as the product dimension (real category names are used on the second store, where 89.5% of revenue has them); price tiers were tested but did not separate segments (about 70% of sales are premium-tier in every segment).
   - *No campaign records:* uplift was measured on a second dataset (Dunnhumby) with placebo and pre-trend checks. It showed that naive estimates are heavily inflated by selection. *No margin or campaign cost* remain explicit, adjustable assumptions.
   - *No currency stated:* amounts are in the dataset's own price units.
   - *Falling base rate (model scores run high):* rate rescaling plus a slider; scores are for ranking.
@@ -252,6 +271,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 │   ├── churn_model.py     # next-month purchase model for buyers
 │   ├── conversion_model.py# first-purchase model for browsers
 │   ├── campaign_uplift.py # measured uplift (Dunnhumby, diff-in-diff)
+│   ├── generalization_check.py # second-store comparison
 │   ├── model_comparison.py# LightGBM / XGBoost / sklearn + tuning
 │   ├── clv.py             # lifetime value (BG/NBD + Gamma-Gamma)
 │   ├── explain.py         # SHAP explanations

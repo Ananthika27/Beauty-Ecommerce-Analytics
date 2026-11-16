@@ -1,6 +1,6 @@
 # Extra datasets to extend the project
 
-**Status:** Dunnhumby is downloaded and analysed (`src/campaign_uplift.py`). Online Retail II and the multi-category store dataset are supported by code but not yet run on real data.
+**Status:** Dunnhumby (`src/campaign_uplift.py`) and the multi-category store (`src/generalization_check.py`) are downloaded and analysed. Online Retail II is supported by code (`src/online_retail.py`) but has not been run on the real file.
 
 None of these can be merged with the cosmetics store (different customers, different brands). Their value is to **test whether the methods hold elsewhere** and to cover things this dataset cannot (a longer time window, returns, promotions). Put downloads in `data_external/` (git-ignored).
 

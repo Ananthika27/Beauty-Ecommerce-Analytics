@@ -18,6 +18,9 @@ st.set_page_config(page_title="Beauty E-Commerce Customer Intelligence", layout=
 
 @st.cache_data
 def load(name):
+    # Full results keep second-store tables in outputs/multicat/; the demo sample prefixes them instead
+    if name.startswith("multicat_") and OUT.name != "demo_data":
+        return pd.read_csv(OUT / "multicat" / f"{name[len('multicat_'):]}.csv")
     return pd.read_csv(OUT / f"{name}.csv")
 
 
@@ -38,8 +41,8 @@ c2.metric("Revenue", f"{total_rev:,.0f}")
 c3.metric("Repeat customers", f"{repeat_row['customer_percentage']:.1f}%")
 c4.metric("Revenue from repeaters", f"{repeat_row['revenue_percentage']:.1f}%")
 
-tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_uplift, tab_roi, tab_browse, tab_brand = st.tabs(
-    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Measured uplift", "Campaign ROI", "Browser conversion", "Brand affinity"]
+tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_uplift, tab_second, tab_roi, tab_browse, tab_brand = st.tabs(
+    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Measured uplift", "Second store", "Campaign ROI", "Browser conversion", "Brand affinity"]
 )
 
 with tab_seg:
@@ -136,6 +139,17 @@ with tab_uplift:
     st.dataframe(up_sum.round(2), hide_index=True, width="stretch")
     st.write("**Each campaign**")
     st.dataframe(load("dunnhumby_campaign_uplift").round(2), hide_index=True, width="stretch")
+
+with tab_second:
+    st.subheader("Do the findings hold on a different store?")
+    st.caption("Multi-category store (mostly electronics), Oct-Nov 2019, 697,470 customers. Only two months, so some figures are not like-for-like.")
+    st.dataframe(load("multicat_generalization_summary").set_index("dataset").T.astype(str), width="stretch")
+    st.write("**Do browsing features still help predict next-month purchase?**")
+    st.dataframe(load("multicat_generalization_model"), hide_index=True, width="stretch")
+    st.caption("Random 50/50 customer split (only two months exist), which is weaker than the out-of-time test used for the cosmetics store.")
+    cov = load("multicat_category_coverage").iloc[0, 0]
+    st.write(f"**Real category names:** {cov:.1f}% of this store's revenue has a category, versus about 4% for cosmetics.")
+    st.dataframe(load("multicat_top_categories"), hide_index=True, width="stretch")
 
 with tab_roi:
     st.subheader("Is a retention campaign worth it?")
