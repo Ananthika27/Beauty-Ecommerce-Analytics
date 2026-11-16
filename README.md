@@ -27,37 +27,41 @@ Customers were segmented using **Recency, Frequency and Monetary (RFM)** analy
 
 The analysis identified 8 customer segments:
 
-| Customer Segment | Customers | % of Customers |
-| --- | --- | --- |
-| Regular Customers | 35,658 | 32.26% |
-| Champions | 16,470 | 14.90% |
-| At Risk | 14,479 | 13.10% |
-| Loyal Customers | 12,562 | 11.37% |
-| New Customers | 11,142 | 10.08% |
-| At Risk High Value | 10,338 | 9.35% |
-| High Value Lost | 5,440 | 4.92% |
-| Potential Loyalists | 4,429 | 4.01% |
+| Customer Segment | Customers | % of Customers | % of Revenue |
+| --- | --- | --- | --- |
+| Regular Customers | 39,586 | 35.82% | 17.99% |
+| New Customers | 30,508 | 27.60% | 18.82% |
+| High Value Lost | 20,189 | 18.27% | 18.83% |
+| Potential Loyalists | 7,060 | 6.39% | 9.42% |
+| Loyal Customers | 4,456 | 4.03% | 10.27% |
+| At Risk | 3,930 | 3.56% | 5.32% |
+| Champions | 3,877 | 3.51% | 16.90% |
+| At Risk High Value | 912 | 0.83% | 2.45% |
+
+Frequency is the number of **orders** (distinct sessions), scored with fixed bins (1, 2, 3, 4–5, 6+ orders) because most customers have a single order. Recency and monetary use quintiles.
 
 ### Revenue Analysis
 
 The customer segments showed a clear difference in their contribution to revenue.
 
-**Champions generated 39.06% of total revenue**, making them the highest revenue-generating customer segment.
+**High Value Lost generated 18.83% of total revenue**, followed by:
 
-The next major contributors were:
+- New Customers — **18.82%**
+- Regular Customers — **17.99%**
+- Champions — **16.90%**
 
-- At Risk High Value — **16.20%**
-- Regular Customers — **13.58%**
-- Loyal Customers — **13.35%**
-
-This helped identify which customer groups are most important from a revenue perspective and which high-value customers may need retention efforts.
+Champions are only 3.5% of customers but average 276 in spend per customer, versus 39 for New Customers.
 
 ### Repeat Purchase Analysis
 
 Customer purchase frequency was analyzed to understand repeat purchasing behavior.
 
-- **99,084 customers (95.4%)** were repeat customers.
-- **11,434 customers (4.6%)** were one-time customers.
+A purchase is counted as one order (distinct `user_session`), not one item.
+
+- **23,303 customers (21.1%)** placed more than one order.
+- **87,215 customers (78.9%)** placed a single order.
+
+Repeat customers generated 48.04% of revenue.
 
 The analysis also looked at the distribution of customer purchase frequency.
 
@@ -98,13 +102,15 @@ The analysis identified the top-performing:
 
 for each customer segment.
 
+> **Data limitation:** `category_code` is missing for ~96% of purchase revenue in the source data, so categories are reported by numeric `category_id`; a readable `category_name` is attached only where available.
+
 This helped connect **customer value with product preferences** and provides a basis for more targeted customer strategies.
 
 ## Key Insights
 
-- **Champions contribute 39.06% of total revenue** while representing 14.90% of customers.
-- **95.4% of customers are repeat customers**, showing strong repeat purchasing behavior in the dataset.
-- **At Risk High Value customers contribute 16.20% of revenue**, making them an important group for customer retention.
+- **Champions contribute 16.90% of revenue** from 3.5% of customers.
+- **78.9% of customers placed only one order**; repeat customers (21.1%) generate 48.04% of revenue.
+- **High Value Lost customers (one order, high spend, inactive 90+ days) contribute 18.83% of revenue** — the biggest win-back opportunity.
 - **November 2019 generated the highest monthly revenue** at approximately 1.53M.
 - Customer preferences vary across different RFM segments, with different products, brands, and categories performing better within different customer groups.
 - Cohort analysis shows that customer retention drops significantly after the first month, highlighting the importance of retaining newly acquired customers.
@@ -136,11 +142,22 @@ Beauty-Ecommerce-Analytics/
 ├── sql/
 │
 ├── load_data.py
+├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
 The raw dataset and generated CSV files are excluded from the GitHub repository using `.gitignore` because of their size.
+
+## How to Run
+
+```bash
+pip install -r requirements.txt
+# place the five monthly CSVs from the Kaggle dataset in data/
+python load_data.py
+```
+
+The script cleans the data (drops duplicates, non-positive prices, missing sessions), then writes the analysis CSVs (including `cohort_retention.csv`) used by Power BI.
 
 ## Outcome
 

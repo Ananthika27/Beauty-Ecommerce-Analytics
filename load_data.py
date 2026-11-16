@@ -28,10 +28,6 @@ df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
 
 print("\nEvent time data type:")
 print(df["event_time"].dtype)
-df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
-
-print("\nEvent time data type:")
-print(df["event_time"].dtype)
 print("\nDate range:")
 print("Start:", df["event_time"].min())
 print("End:", df["event_time"].max())
@@ -310,7 +306,7 @@ reference_date = purchases["event_time"].max() + pd.Timedelta(days=1)
 # Calculate RFM metrics
 rfm = purchases.groupby("user_id").agg(
     recency=("event_time", lambda x: (reference_date - x.max()).days),
-    frequency=("event_time", "count"),
+    frequency=("user_session", "nunique"),
     monetary=("price", "sum")
 )
 
@@ -328,11 +324,12 @@ rfm["recency_score"] = pd.qcut(
     duplicates="drop"
 ).astype(int)
 
-rfm["frequency_score"] = pd.qcut(
-    rfm["frequency"].rank(method="first"),
-    5,
-    labels=[1, 2, 3, 4, 5],
-    duplicates="drop"
+# Order counts are heavily tied (most customers have 1 order), so use fixed
+# bins instead of rank-based quantiles, which would split identical values.
+rfm["frequency_score"] = pd.cut(
+    rfm["frequency"],
+    bins=[0, 1, 2, 3, 5, float("inf")],
+    labels=[1, 2, 3, 4, 5]
 ).astype(int)
 
 rfm["monetary_score"] = pd.qcut(
@@ -373,25 +370,25 @@ def assign_segment(row):
     f = row["frequency_score"]
     m = row["monetary_score"]
 
-    if r >= 4 and f >= 4 and m >= 4:
+    if r >= 4 and f >= 4:
         return "Champions"
 
-    elif r >= 3 and f >= 4:
+    elif r >= 3 and f >= 3:
         return "Loyal Customers"
 
-    elif r >= 4 and f <= 2 and m >= 3:
-        return "Potential Loyalists"
-
-    elif r >= 4 and f <= 2:
+    elif r >= 4 and f == 1:
         return "New Customers"
 
-    elif r <= 2 and f >= 4 and m >= 4:
+    elif r >= 4 and f == 2:
+        return "Potential Loyalists"
+
+    elif r <= 2 and f >= 3 and m >= 4:
         return "At Risk High Value"
 
-    elif r <= 2 and f >= 3:
+    elif r <= 2 and f >= 2:
         return "At Risk"
 
-    elif r <= 2 and f <= 2 and m >= 3:
+    elif r <= 2 and f == 1 and m >= 3:
         return "High Value Lost"
 
     else:
@@ -538,6 +535,13 @@ print("\n" + "=" * 60)
 print("CUSTOMER SEGMENT CATEGORY ANALYSIS")
 print("=" * 60)
 
+# category_id is numeric; attach the most common non-null category_code
+category_names = (
+    df.dropna(subset=["category_code"])
+    .groupby("category_id")["category_code"]
+    .agg(lambda x: x.mode().iloc[0])
+)
+
 segment_category_revenue = (
     segment_purchases
     .groupby(["segment", "category_id"])
@@ -546,6 +550,9 @@ segment_category_revenue = (
         total_sales=("price", "sum")
     )
     .reset_index()
+)
+segment_category_revenue["category_name"] = (
+    segment_category_revenue["category_id"].map(category_names)
 )
 
 print("\nTop 5 categories by revenue for each customer segment:")
@@ -573,11 +580,14 @@ print("CUSTOMER REPEAT PURCHASE ANALYSIS")
 print("=" * 60)
 
 # Count purchases made by each customer
+# An order = a distinct user_session. Each purchase row is a single item,
+# so counting rows would treat one multi-item basket as repeat buying.
 customer_purchase_frequency = (
     purchases
     .groupby("user_id")
     .agg(
-        purchase_count=("user_id", "count"),
+        purchase_count=("user_session", "nunique"),
+        items_purchased=("user_id", "count"),
         total_spent=("price", "sum")
     )
 )
@@ -786,9 +796,17 @@ print("\nSegment category analysis CSV created successfully!")
 # EXPORT CUSTOMER REPEAT PURCHASE ANALYSIS
 # ============================================================
 
-customer_purchase_frequency.to_csv(
+customer_purchase_frequency.reset_index().to_csv(
     "repeat_purchase_analysis.csv",
     index=False
 )
 
 print("\nRepeat purchase analysis CSV created successfully!")
+
+# ============================================================
+# EXPORT COHORT RETENTION
+# ============================================================
+
+retention_table.round(2).to_csv("cohort_retention.csv")
+
+print("\nCohort retention CSV created successfully!")
