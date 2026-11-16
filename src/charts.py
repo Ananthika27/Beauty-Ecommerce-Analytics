@@ -63,3 +63,20 @@ ax.plot(h["hour_utc"], h["total_sales"] / 1e3, marker="o", color=BLUE)
 ax.set_xlabel("Hour of day (UTC)"); ax.set_ylabel("Sales (thousands)"); ax.set_title("Sales by hour of day")
 save(fig, "sales_by_hour.png")
 print("Charts saved to images/")
+
+# ---- model charts ----
+d = pd.read_csv(OUT / "model_deciles.csv")
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.bar(d["decile"], d["actual_rate"] * 100, color=BLUE, label="Actual return rate")
+ax.plot(d["decile"], d["avg_score"] * 100, color="#d9822b", marker="o", label="Predicted")
+ax.axhline(d["actual_rate"].mul(d["customers"]).sum() / d["customers"].sum() * 100, color=GREY, ls="--", label="Overall rate")
+ax.set_xlabel("Score decile (1 = most likely to buy)"); ax.set_ylabel("% who bought in Feb 2020")
+ax.set_title("Out-of-time test: return rate by predicted decile"); ax.legend(frameon=False)
+save(fig, "model_deciles.png")
+
+fi = pd.read_csv(OUT / "model_feature_importance.csv").head(8).iloc[::-1]
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.barh(fi["feature"], fi["importance"], xerr=fi["std"], color=BLUE)
+ax.set_xlabel("Drop in ROC-AUC when shuffled"); ax.set_title("What drives repeat purchase?")
+save(fig, "feature_importance.png")
+print("Model charts saved")

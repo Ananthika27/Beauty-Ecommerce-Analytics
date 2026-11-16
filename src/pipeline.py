@@ -12,6 +12,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 OUT_DIR = ROOT / "outputs"
+PROCESSED = DATA_DIR / "processed" / "purchases.parquet"
 CHUNK_ROWS = 1_000_000
 
 # Fixed bins: most customers have one order, so quantiles would split ties.
@@ -192,6 +193,10 @@ def funnel_table(funnel_users):
 def main():
     OUT_DIR.mkdir(exist_ok=True)
     purchases, funnel_users, event_counts, qa = load_and_clean()
+
+    PROCESSED.parent.mkdir(parents=True, exist_ok=True)
+    purchases.drop(columns=["event_type"]).to_parquet(PROCESSED, index=False)
+    print(f"Saved cleaned purchases to {PROCESSED.relative_to(ROOT)}")
 
     print("\nData quality summary")
     for key, value in qa.items():
