@@ -18,3 +18,10 @@ venv/
 .vscode/
 .idea/
 outputs/
+
+# Small sample so the dashboard can be deployed
+!demo_data/
+!demo_data/*.csv
+
+# External datasets
+data_external/

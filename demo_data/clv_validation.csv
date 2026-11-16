@@ -1,0 +1,2 @@
+holdout_days,predicted_orders,actual_orders,correlation_bgnbd,correlation_naive,top_decile_share_of_actual_value_pct
+60,22814,17533,0.5338,0.4212,49.58

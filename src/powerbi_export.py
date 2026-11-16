@@ -38,7 +38,10 @@ def main():
     scores = read("customer_retention_scores")[
         ["user_id", "purchase_probability", "avg_order_value", "days_since_last_activity", "views_30d", "carts_30d"]
     ]
-    fact = rfm.merge(repeat, on="user_id", how="left").merge(scores, on="user_id", how="left")
+    clv = read("customer_clv")[["user_id", "prob_alive", "pred_orders", "pred_value"]].rename(
+        columns={"pred_orders": "pred_orders_90d", "pred_value": "pred_value_90d"}
+    )
+    fact = rfm.merge(repeat, on="user_id", how="left").merge(scores, on="user_id", how="left").merge(clv, on="user_id", how="left")
     fact["probability_band"] = pd.cut(
         fact["purchase_probability"], [-0.01, 0.1, 0.3, 1.0], labels=["Low (<10%)", "Medium (10-30%)", "High (>30%)"]
     ).astype(str)
@@ -83,6 +86,9 @@ def main():
         if target == "fact_monthly":
             table.insert(1, "month_index", range(1, len(table) + 1))   # for month-over-month DAX
         table.to_csv(PBI / f"{target}.csv", index=False)
+
+    read("winback_reasons").to_csv(PBI / "fact_winback_reasons.csv", index=False)
+    read("clv_validation_deciles").to_csv(PBI / "fact_clv_validation.csv", index=False)
 
     read("brand_affinity").head(300).to_csv(PBI / "fact_brand_affinity.csv", index=False)
 

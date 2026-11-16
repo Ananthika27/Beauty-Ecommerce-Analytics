@@ -5,10 +5,13 @@ analysis table used by the README and Power BI to outputs/.
 
 Usage:  python src/pipeline.py
 """
+import argparse
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+import validation
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -39,6 +42,8 @@ def load_and_clean():
     for file in files:
         print(f"Reading {file.name}")
         for chunk in pd.read_csv(file, chunksize=CHUNK_ROWS):
+            validation.check_schema(chunk.columns)
+            validation.check_events(chunk["event_type"].unique())
             qa["raw_rows"] += len(chunk)
             bad_price = chunk["price"] <= 0
             no_session = chunk["user_session"].isna()
@@ -75,6 +80,7 @@ def load_and_clean():
     qa["duplicate_purchases"] = before - len(df)
     df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
     qa["clean_purchases"] = len(df)
+    validation.check_quality(qa)
     return df, funnel_users, event_counts, qa, engagement, brand_funnel
 
 
@@ -277,4 +283,11 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--data-dir", type=Path, default=DATA_DIR, help="folder with the monthly event CSVs")
+    parser.add_argument("--out-dir", type=Path, default=OUT_DIR, help="where to write the analysis tables")
+    args = parser.parse_args()
+    DATA_DIR, OUT_DIR = args.data_dir, args.out_dir
+    PROCESSED = DATA_DIR / "processed" / "purchases.parquet"
+    ENGAGEMENT = DATA_DIR / "processed" / "engagement_daily.parquet"
     main()

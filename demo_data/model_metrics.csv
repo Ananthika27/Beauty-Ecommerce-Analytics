@@ -1,0 +1,6 @@
+model,roc_auc,pr_auc,brier,top_decile_lift,roc_auc_ci_low,roc_auc_ci_high
+Recency/frequency heuristic,0.7135,0.2575,0.0748,2.98,0.708,0.7188
+Logistic regression (all features),0.8161,0.3629,0.0693,4.32,0.8112,0.8211
+Gradient boosting (purchase features only),0.7681,0.3374,0.0679,4.1,0.7618,0.7734
+Gradient boosting (+ browsing features),0.8264,0.3861,0.065,4.56,0.8216,0.8308
+"Gradient boosting (+ browsing, rate-rescaled)",0.8264,0.3861,0.0646,4.56,0.8216,0.8308

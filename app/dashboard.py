@@ -9,7 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import economics as ec
 from churn_model import rescale_to_rate
 
-OUT = Path(__file__).resolve().parent.parent / "outputs"
+ROOT = Path(__file__).resolve().parent.parent
+# Use the full outputs when present, otherwise the small committed demo sample
+OUT = ROOT / "outputs" if (ROOT / "outputs" / "rfm_customer_segments.csv").exists() else ROOT / "demo_data"
 
 st.set_page_config(page_title="Beauty E-Commerce Customer Intelligence", layout="wide")
 
@@ -21,6 +23,8 @@ def load(name):
 
 st.title("Beauty E-Commerce Customer Intelligence")
 st.caption("20.7M shopping events · Oct 2019 – Feb 2020 · 110,518 buying customers")
+if OUT.name == "demo_data":
+    st.info("Demo mode: customer-level tables are a 5,000-customer sample. Aggregate tables are complete.")
 
 seg = load("segment_revenue_analysis")
 monthly = load("monthly_customer_behavior")
@@ -34,8 +38,8 @@ c2.metric("Revenue", f"{total_rev:,.0f}")
 c3.metric("Repeat customers", f"{repeat_row['customer_percentage']:.1f}%")
 c4.metric("Revenue from repeaters", f"{repeat_row['revenue_percentage']:.1f}%")
 
-tab_seg, tab_trend, tab_cohort, tab_model, tab_roi, tab_browse, tab_brand = st.tabs(
-    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Campaign ROI", "Browser conversion", "Brand affinity"]
+tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_roi, tab_browse, tab_brand = st.tabs(
+    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Campaign ROI", "Browser conversion", "Brand affinity"]
 )
 
 with tab_seg:
@@ -93,6 +97,27 @@ with tab_model:
         hide_index=True, width="stretch",
     )
     st.download_button("Download target list (CSV)", targets.to_csv(index=False), "retention_targets.csv")
+
+    st.subheader("Why are these customers unlikely to return? (SHAP)")
+    st.caption("Top 3 factors pulling each customer's purchase probability down.")
+    st.dataframe(load("winback_reasons").head(200), hide_index=True, width="stretch")
+
+with tab_clv:
+    st.subheader("Customer lifetime value (BG/NBD + Gamma-Gamma)")
+    st.caption("Fitted on Oct-Dec 2019 and checked against what customers actually bought in Jan-Feb 2020.")
+    val = load("clv_validation").iloc[0]
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Rank correlation vs actual orders", f"{val['correlation_bgnbd']:.2f}", f"naive baseline {val['correlation_naive']:.2f}", delta_color="off")
+    k2.metric("Top decile's share of actual spend", f"{val['top_decile_share_of_actual_value_pct']:.0f}%")
+    k3.metric("Predicted vs actual orders", f"{int(val['predicted_orders']):,} vs {int(val['actual_orders']):,}")
+    st.caption("The model over-predicts total orders because the base keeps filling with newer, less loyal buyers; use it to rank customers by value.")
+    v = load("clv_validation_deciles").set_index("decile")[["predicted_value", "actual_value"]]
+    st.bar_chart(v)
+    clv_tbl = load("customer_clv").merge(load("rfm_customer_segments")[["user_id", "segment"]], on="user_id")
+    pick = st.multiselect("Segment ", sorted(clv_tbl["segment"].unique()), default=sorted(clv_tbl["segment"].unique()))
+    sel = clv_tbl[clv_tbl["segment"].isin(pick)].sort_values("pred_value", ascending=False)
+    st.write(f"Predicted 90-day value of selection: {sel['pred_value'].sum():,.0f}")
+    st.dataframe(sel[["user_id", "segment", "prob_alive", "pred_orders", "pred_order_value", "pred_value"]].head(500), hide_index=True, width="stretch")
 
 with tab_roi:
     st.subheader("Is a retention campaign worth it?")

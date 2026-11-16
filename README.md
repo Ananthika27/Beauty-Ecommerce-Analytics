@@ -1,5 +1,7 @@
 # Beauty E-Commerce Customer Intelligence
 
+![tests](https://github.com/Ananthika27/Beauty-Ecommerce-Analytics/actions/workflows/tests.yml/badge.svg)
+
 End-to-end customer analytics on **20.7 million shopping events** from a cosmetics online store (October 2019 – February 2020). The project cleans the raw event logs, segments **110,518 buying customers** with RFM analysis, measures repeat purchasing and cohort retention, and turns the findings into retention recommendations. It adds **two predictive models** (next-month repeat purchase for buyers and first purchase for browsers, both validated out of time with confidence intervals), a **brand co-purchase (market-basket) analysis**, an **interactive Streamlit dashboard**, automated tests and CI. Results also feed a Power BI dashboard.
 
 **Tools:** Python · pandas · scikit-learn · Streamlit · matplotlib · SQL · pytest · GitHub Actions · Power BI
@@ -50,6 +52,29 @@ The store has **1.53M users who browsed but never bought**, a group the original
 ![Gains](images/conversion_gains.png)
 
 The **top 10% of browsers contain 62% of next-month first-time buyers** and the top 20% contain 75%, so retargeting spend can be concentrated on a small audience. Note: it only covers people with prior browsing history. Many first-time buyers browse and buy in the same month and cannot be predicted this way.
+
+## Explaining the predictions (SHAP)
+
+A score alone doesn't tell a marketer what to do, so the model is explained with SHAP values.
+
+![SHAP](images/shap_summary.png)
+
+- **Globally:** the most recent activity dominates. Customers who were active on the site recently get a higher purchase probability, and those who went quiet get a lower one. More active days, recent carts and longer tenure all push the probability up.
+- **Per customer:** `outputs/winback_reasons.csv` lists the top 3 factors dragging down each of the 3,000 highest-value win-back customers. For 86% of them the main reason is simply days since last activity. The dashboard shows these reasons beside the target list.
+
+## Customer lifetime value (BG/NBD + Gamma-Gamma)
+
+Predicts how many orders and how much spend each customer will generate over the next 90 days, and the probability each is still "alive". It is fitted on Oct–Dec 2019 and validated on what customers actually did in Jan–Feb 2020.
+
+![CLV](images/clv_validation.png)
+
+| Check (60-day holdout) | Result |
+| --- | --- |
+| Correlation with actual orders | **0.53** (naive "same rate as before" baseline: 0.42) |
+| Top 10% by predicted value | account for **50%** of actual holdout spend |
+| Total orders | predicted 22,814 vs actual 17,533 (**over-predicts by 30%**) |
+
+The model ranks customers well but over-predicts totals, for the same reason the retention model does: the customer base keeps filling with newer, less loyal buyers. Use it to rank and prioritise, not to forecast revenue. The next 90 days are predicted at about 1.29M in total (`outputs/customer_clv.csv`).
 
 ## Cart abandonment and brand conversion
 
@@ -135,7 +160,10 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 ## Engineering practices
 
 - **Reproducible:** one command rebuilds every table and chart from the raw files.
-- **Tested:** 17 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
+- **Tested:** 20 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
+- **Validated inputs:** the pipeline checks the schema, event types and the share of unusable rows and stops with a clear error instead of producing wrong numbers.
+- **Portable:** `Dockerfile` for one-command runs, and `python src/pipeline.py --data-dir ... --out-dir ...` to run on another dataset with the same schema.
+- **Deployable demo:** `demo_data/` lets the dashboard run anywhere without the 2.4 GB raw data (for example Streamlit Community Cloud with main file `app/dashboard.py`).
 - **Memory-safe:** the 2.4 GB raw data is streamed in chunks; cleaned purchases are cached as Parquet.
 - **Honest evaluation:** out-of-time test set, simple baselines, an ablation (with/without browsing data), bootstrap confidence intervals, and calibration caveats stated.
 
@@ -161,13 +189,21 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 │   ├── pipeline.py        # clean data + build all analysis tables
 │   ├── churn_model.py     # next-month purchase model for buyers
 │   ├── conversion_model.py# first-purchase model for browsers
+│   ├── clv.py             # lifetime value (BG/NBD + Gamma-Gamma)
+│   ├── explain.py         # SHAP explanations
 │   ├── economics.py       # campaign break-even / ROI (assumption-driven)
+│   ├── validation.py      # input checks
+│   ├── online_retail.py   # run the methods on a second dataset
+│   ├── make_demo_data.py  # small sample for deploying the dashboard
 │   ├── powerbi_export.py  # star-schema CSVs for Power BI
 │   ├── basket.py          # brand co-purchase / market-basket analysis
 │   └── charts.py          # charts for this README
 ├── app/dashboard.py       # Streamlit dashboard
 ├── tests/                 # pytest suite (segments, leakage, labels, basket)
 ├── .github/workflows/     # CI runs the tests on every push
+├── demo_data/             # 1.5 MB sample so the dashboard runs without the raw data
+├── docs/DATASETS.md       # extra datasets to extend the project
+├── Dockerfile
 ├── Makefile
 ├── notebooks/
 │   └── 01_data_exploration.ipynb
@@ -185,11 +221,12 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 pip install -r requirements.txt
 # download the dataset from Kaggle and place the five monthly CSVs in data/
 make all                   # pipeline -> models -> basket -> charts -> Power BI tables (about 10 minutes)
-make test                  # 17 unit tests
+make test                  # 20 unit tests
 make app                   # interactive dashboard
+make docker                # or run the dashboard in Docker (uses the demo sample)
 ```
 
-Or run the scripts individually: `python src/pipeline.py`, `python src/churn_model.py`, `python src/conversion_model.py`, `python src/basket.py`, `python src/charts.py`.
+Or run the scripts individually: `python src/pipeline.py`, `python src/churn_model.py`, `python src/conversion_model.py`, `python src/clv.py`, `python src/explain.py`, `python src/basket.py`, `python src/charts.py`.
 
 ## Power BI dashboard
 

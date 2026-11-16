@@ -21,7 +21,7 @@ make all          # if you haven't already
 make powerbi      # writes outputs/powerbi/*.csv
 ```
 
-In Desktop: **Get Data > Text/CSV**, load each file in `outputs/powerbi/` (or *Get Data > Folder* then split). 14 files, all small except `fact_customers.csv` (110,518 rows). Use **Load**, not Transform; the data is already clean.
+In Desktop: **Get Data > Text/CSV**, load each file in `outputs/powerbi/` (or *Get Data > Folder* then split). 16 files, all small except `fact_customers.csv` (110,518 rows). Use **Load**, not Transform; the data is already clean.
 
 ## 2. Model (Model view)
 
@@ -74,6 +74,8 @@ Import `theme.json` via **View > Themes > Browse for themes**. Create the DAX me
 - **Column + line:** `fact_model_deciles[decile]`: columns `actual_rate`, line `avg_score`
 - **Cards:** `Win-Back Customers`, `Win-Back Historic Spend`
 - **Table (target list):** `fact_customers` fields `user_id`, `segment`, `purchase_probability`, `total_spent`, `orders`; filter `probability_band` and segment. Add an **Export data** option so a marketing team can download it.
+- **Table (why they won't return):** `fact_winback_reasons` (`user_id`, `segment`, `purchase_probability`, `main_reason_1..3`)
+- **Column chart:** `fact_clv_validation[decile]` with `predicted_value` and `actual_value`, plus cards `Predicted 90d Value` and `Avg Probability Alive`
 - **Note text box:** "Scores are for *ranking* customers. The monthly return rate fell from 18.5% to 8.5% as the customer base grew."
 
 ## 4. Finish

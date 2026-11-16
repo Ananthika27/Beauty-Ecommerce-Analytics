@@ -75,3 +75,11 @@ DIVIDE (
     [Brand Sales],
     CALCULATE ( [Brand Sales], ALLEXCEPT ( fact_segment_brand_top10, fact_segment_brand_top10[segment] ) )
 )
+
+// ---------- Lifetime value (columns added to fact_customers) ----------
+Predicted 90d Value = SUM ( fact_customers[pred_value_90d] )
+
+Avg Probability Alive = AVERAGE ( fact_customers[prob_alive] )
+
+Predicted 90d Value % of Total =
+DIVIDE ( [Predicted 90d Value], CALCULATE ( [Predicted 90d Value], ALL ( fact_customers ) ) )

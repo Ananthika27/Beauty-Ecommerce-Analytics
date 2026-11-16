@@ -111,3 +111,52 @@ def test_engagement_features_only_use_past_events():
     f = cm.engagement_features(eng, "2020-02-01")
     assert f.loc[1, "views_total"] == 5 and f.loc[1, "carts_total"] == 2   # Feb 10 excluded
     assert f.loc[1, "days_since_last_activity"] == 12
+
+
+def test_validation_catches_bad_input():
+    import validation
+    with pytest.raises(ValueError):
+        validation.check_schema(["event_time", "price"])
+    with pytest.raises(ValueError):
+        validation.check_events(["view", "teleport"])
+    validation.check_events(["view", "cart", "purchase"])
+    with pytest.raises(ValueError):
+        validation.check_quality({"raw_rows": 100, "bad_price": 40, "missing_session": 0, "clean_purchases": 10})
+    assert validation.check_quality({"raw_rows": 100, "bad_price": 2, "missing_session": 1, "clean_purchases": 50}) == 0.03
+
+
+def test_online_retail_adapter_handles_returns_and_missing_customers():
+    import online_retail as orr
+    raw = pd.DataFrame({
+        "Invoice": ["1001", "1001", "C1002", "1003", "1004"],
+        "StockCode": ["A", "B", "A", "C", "D"],
+        "Description": ["x"] * 5,
+        "Quantity": [2, 1, -1, 3, 1],
+        "InvoiceDate": ["2010-01-05"] * 5,
+        "Price": [10.0, 5.0, 10.0, 2.0, 7.0],
+        "Customer ID": [1.0, 1.0, 1.0, 2.0, None],      # last row has no customer
+        "Country": ["UK"] * 5,
+    })
+    purchases, returns = orr.to_common_schema(raw)
+    assert len(purchases) == 3                          # cancelled + anonymous rows removed
+    assert purchases["price"].sum() == pytest.approx(31.0)
+    assert returns["cancelled_invoices"] == 1 and returns["returned_value"] == pytest.approx(10.0)
+
+
+def test_clv_runs_and_ranks_frequent_buyers_higher():
+    import numpy as np
+    import clv
+    rng = np.random.default_rng(1)
+    rows = []
+    for u in range(600):
+        rate = rng.gamma(2.0, 0.02) * (4 if u < 200 else 1)   # first 200 buy far more often
+        t = rng.exponential(1 / rate)
+        while t < 240:
+            rows.append((u, pd.Timestamp("2019-01-01") + pd.Timedelta(days=int(t)), 20.0))
+            if rng.random() < 0.1:                             # customer churns
+                break
+            t += rng.exponential(1 / rate) + 1
+    tx = pd.DataFrame(rows, columns=["user_id", "date", "value"])
+    metrics, deciles = clv.evaluate_holdout(tx, pd.Timestamp("2019-06-30"), pd.Timestamp("2019-08-28"))
+    assert metrics["correlation_bgnbd"] > 0.3
+    assert deciles["actual_value"].iloc[0] > deciles["actual_value"].iloc[-1]

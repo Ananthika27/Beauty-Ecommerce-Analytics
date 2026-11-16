@@ -98,3 +98,14 @@ ax.set_xlabel("Browsers contacted, by score decile"); ax.set_ylabel("% of next-m
 ax.set_title("Cumulative gains: never-purchased browsers"); ax.legend(frameon=False)
 save(fig, "conversion_gains.png")
 print("Comparison charts saved")
+
+# ---- CLV validation ----
+cv = pd.read_csv(OUT / "clv_validation_deciles.csv")
+fig, ax = plt.subplots(figsize=(7.5, 4))
+w = 0.4
+ax.bar(cv["decile"] - w / 2, cv["predicted_value"] / 1e3, w, color=GREY, label="Predicted")
+ax.bar(cv["decile"] + w / 2, cv["actual_value"] / 1e3, w, color=BLUE, label="Actual")
+ax.set_xlabel("Predicted-value decile (1 = highest)"); ax.set_ylabel("Spend in Jan-Feb 2020 (thousands)")
+ax.set_title("Lifetime value model: predicted vs actual spend (holdout)"); ax.legend(frameon=False)
+save(fig, "clv_validation.png")
+print("CLV chart saved")
