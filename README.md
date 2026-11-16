@@ -2,6 +2,8 @@
 
 ![tests](https://github.com/Ananthika27/Beauty-Ecommerce-Analytics/actions/workflows/tests.yml/badge.svg)
 
+**Live dashboard:** https://beauty-ecommerce-analytics-jg5mom7c22cq2hue3pfdkb.streamlit.app (runs on a 5,000-customer sample; aggregate tables are complete)
+
 End-to-end customer analytics on **20.7 million shopping events** from a cosmetics online store (October 2019 – February 2020). The project cleans the raw event logs, segments **110,518 buying customers** with RFM analysis, measures repeat purchasing and cohort retention, and turns the findings into retention recommendations. It adds **two predictive models** (next-month repeat purchase for buyers and first purchase for browsers, both validated out of time with confidence intervals), a **brand co-purchase (market-basket) analysis**, an **interactive Streamlit dashboard**, automated tests and CI. Results also feed a Power BI dashboard.
 
 **Tools:** Python · pandas · scikit-learn · Streamlit · matplotlib · SQL · pytest · GitHub Actions · Power BI
