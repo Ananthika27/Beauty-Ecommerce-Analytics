@@ -1,8 +1,13 @@
 """Interactive dashboard.  Run:  streamlit run app/dashboard.py"""
+import sys
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+import economics as ec
+from churn_model import rescale_to_rate
 
 OUT = Path(__file__).resolve().parent.parent / "outputs"
 
@@ -29,8 +34,8 @@ c2.metric("Revenue", f"{total_rev:,.0f}")
 c3.metric("Repeat customers", f"{repeat_row['customer_percentage']:.1f}%")
 c4.metric("Revenue from repeaters", f"{repeat_row['revenue_percentage']:.1f}%")
 
-tab_seg, tab_trend, tab_cohort, tab_model, tab_brand = st.tabs(
-    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Brand affinity"]
+tab_seg, tab_trend, tab_cohort, tab_model, tab_roi, tab_browse, tab_brand = st.tabs(
+    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Campaign ROI", "Browser conversion", "Brand affinity"]
 )
 
 with tab_seg:
@@ -72,6 +77,11 @@ with tab_model:
     scores = load("customer_retention_scores").merge(
         load("rfm_customer_segments")[["user_id", "segment"]], on="user_id"
     )
+    rate = st.slider(
+        "Expected March purchase rate among past buyers", 0.04, 0.20, 0.085, 0.005,
+        help="The monthly rate fell from 18% to 8.5% as the customer base grew. Probabilities are rescaled to this rate; the ranking does not change.",
+    )
+    scores["purchase_probability"] = rescale_to_rate(scores["raw_score"], rate)
     col1, col2 = st.columns(2)
     seg_pick = col1.multiselect("Segment", sorted(scores["segment"].unique()), default=["High Value Lost", "At Risk High Value"])
     max_p = col2.slider("Only customers with purchase probability below", 0.0, 1.0, 0.3, 0.05)
@@ -83,6 +93,32 @@ with tab_model:
         hide_index=True, width="stretch",
     )
     st.download_button("Download target list (CSV)", targets.to_csv(index=False), "retention_targets.csv")
+
+with tab_roi:
+    st.subheader("Is a retention campaign worth it?")
+    st.warning("The dataset has no margin or campaign-cost data. These sliders are assumptions you set, not facts from the data.")
+    roi_scores = load("customer_retention_scores").merge(load("rfm_customer_segments")[["user_id", "segment"]], on="user_id")
+    a, b, c = st.columns(3)
+    margin = a.slider("Gross margin", 0.05, 0.80, 0.30, 0.05)
+    cost = b.slider("Cost per customer contacted (same units as price)", 0.05, 3.0, 0.30, 0.05)
+    uplift = c.slider("Extra purchase probability from the campaign (points)", 0.5, 10.0, 2.0, 0.5) / 100
+    table = ec.segment_economics(roi_scores, margin, cost, uplift)
+    st.dataframe(
+        table[["segment", "customers", "avg_order_value", "break_even_uplift_pct", "incremental_revenue", "campaign_cost", "profit", "roi"]],
+        hide_index=True, width="stretch",
+    )
+    st.caption("Break-even uplift = the smallest increase in purchase probability that pays for one contact. Segments with a low break-even are the cheapest to win back.")
+
+with tab_browse:
+    st.subheader("First-purchase model for browsers who never bought")
+    st.dataframe(load("conversion_model_metrics"), hide_index=True, width="stretch")
+    conv = load("conversion_model_deciles")
+    st.write("**Share of next-month first buyers captured by the top deciles**")
+    st.bar_chart(conv.set_index("decile")["cumulative_capture"])
+    browsers = load("browser_conversion_scores").sort_values("conversion_probability", ascending=False)
+    st.write(f"{len(browsers):,} browsers scored for March 2020")
+    st.dataframe(browsers.head(500), hide_index=True, width="stretch")
+    st.download_button("Download top browsers (CSV)", browsers.head(20000).to_csv(index=False), "browser_targets.csv")
 
 with tab_brand:
     aff = load("brand_affinity")

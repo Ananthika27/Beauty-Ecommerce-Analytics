@@ -80,3 +80,21 @@ ax.barh(fi["feature"], fi["importance"], xerr=fi["std"], color=BLUE)
 ax.set_xlabel("Drop in ROC-AUC when shuffled"); ax.set_title("What drives repeat purchase?")
 save(fig, "feature_importance.png")
 print("Model charts saved")
+
+# ---- model comparison with confidence intervals ----
+mm = pd.read_csv(OUT / "model_metrics.csv").iloc[::-1]
+fig, ax = plt.subplots(figsize=(8, 3.8))
+ax.barh(mm["model"], mm["roc_auc"], color=[BLUE if "browsing" in n else GREY for n in mm["model"]],
+        xerr=[mm["roc_auc"] - mm["roc_auc_ci_low"], mm["roc_auc_ci_high"] - mm["roc_auc"]], capsize=3)
+ax.set_xlim(0.6, 0.9); ax.set_xlabel("ROC-AUC on Feb 2020 (95% bootstrap CI)")
+ax.set_title("Browsing data lifts next-month purchase prediction")
+save(fig, "model_comparison.png")
+
+cd = pd.read_csv(OUT / "conversion_model_deciles.csv")
+fig, ax = plt.subplots(figsize=(7, 3.8))
+ax.plot(cd["decile"], cd["cumulative_capture"] * 100, marker="o", color=BLUE, label="Model")
+ax.plot([0] + list(cd["decile"]), [0] + [i * 10 for i in cd["decile"]], color=GREY, ls="--", label="Random")
+ax.set_xlabel("Browsers contacted, by score decile"); ax.set_ylabel("% of next-month first buyers reached")
+ax.set_title("Cumulative gains: never-purchased browsers"); ax.legend(frameon=False)
+save(fig, "conversion_gains.png")
+print("Comparison charts saved")

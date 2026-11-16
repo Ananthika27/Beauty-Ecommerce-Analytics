@@ -7,12 +7,14 @@ Usage:  python src/pipeline.py
 """
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 OUT_DIR = ROOT / "outputs"
 PROCESSED = DATA_DIR / "processed" / "purchases.parquet"
+ENGAGEMENT = DATA_DIR / "processed" / "engagement_daily.parquet"
 CHUNK_ROWS = 1_000_000
 
 # Fixed bins: most customers have one order, so quantiles would split ties.
@@ -31,6 +33,8 @@ def load_and_clean():
     purchases, qa = [], {"raw_rows": 0, "bad_price": 0, "missing_session": 0}
     funnel_users = {"view": set(), "cart": set(), "purchase": set()}
     event_counts = {}
+    daily, brand_events = [], []
+    cart_sessions, purchase_sessions, all_sessions = [], [], []
 
     for file in files:
         print(f"Reading {file.name}")
@@ -48,13 +52,30 @@ def load_and_clean():
 
             purchases.append(chunk[chunk["event_type"] == "purchase"])
 
+            # Engagement from ALL event types (views and carts, not only purchases)
+            day = chunk["event_time"].str[:10]
+            daily.append(chunk.groupby(["user_id", day.rename("date"), "event_type"]).size().rename("events"))
+            brand_events.append(chunk.groupby(["brand", "event_type"]).size().rename("events"))
+            hashed = pd.util.hash_array(chunk["user_session"].to_numpy())
+            all_sessions.append(np.unique(hashed))
+            cart_sessions.append(np.unique(hashed[(chunk["event_type"] == "cart").to_numpy()]))
+            purchase_sessions.append(np.unique(hashed[(chunk["event_type"] == "purchase").to_numpy()]))
+
+    engagement = pd.concat(daily).groupby(level=[0, 1, 2]).sum().reset_index()
+    brand_funnel = pd.concat(brand_events).groupby(level=[0, 1]).sum().unstack(fill_value=0).reset_index()
+    carts = np.unique(np.concatenate(cart_sessions))
+    bought = np.unique(np.concatenate(purchase_sessions))
+    qa["sessions"] = len(np.unique(np.concatenate(all_sessions)))
+    qa["cart_sessions"] = len(carts)
+    qa["abandoned_cart_sessions"] = len(np.setdiff1d(carts, bought))
+
     df = pd.concat(purchases, ignore_index=True)
     before = len(df)
     df = df.drop_duplicates()
     qa["duplicate_purchases"] = before - len(df)
     df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
     qa["clean_purchases"] = len(df)
-    return df, funnel_users, event_counts, qa
+    return df, funnel_users, event_counts, qa, engagement, brand_funnel
 
 
 # --------------------------------------------------------------------------
@@ -189,12 +210,31 @@ def funnel_table(funnel_users):
     }).round(2)
 
 
+def brand_conversion(bf, min_views=5000):
+    bf = bf.copy()
+    bf.columns.name = None
+    bf = bf[bf["view"] >= min_views]
+    bf["cart_to_purchase_pct"] = bf["purchase"] / bf["cart"] * 100
+    bf["view_to_purchase_pct"] = bf["purchase"] / bf["view"] * 100
+    return bf.sort_values("view_to_purchase_pct", ascending=False).round(2)
+
+
+def price_tiers(purchases, rfm):
+    """Price tier is derived from the item price distribution (real data, no names needed)."""
+    tier = pd.qcut(purchases["price"], 3, labels=["Budget", "Mid", "Premium"])
+    p = purchases.assign(price_tier=tier).merge(rfm[["segment"]], left_on="user_id", right_index=True)
+    out = p.groupby(["segment", "price_tier"], observed=True)["price"].agg(items_sold="count", total_sales="sum").reset_index()
+    out["share_of_segment_sales"] = out["total_sales"] / out.groupby("segment")["total_sales"].transform("sum") * 100
+    return out.round(2)
+
+
 # --------------------------------------------------------------------------
 def main():
     OUT_DIR.mkdir(exist_ok=True)
-    purchases, funnel_users, event_counts, qa = load_and_clean()
-
     PROCESSED.parent.mkdir(parents=True, exist_ok=True)
+    purchases, funnel_users, event_counts, qa, engagement, brand_funnel = load_and_clean()
+    engagement.to_parquet(ENGAGEMENT, index=False)
+
     purchases.drop(columns=["event_type"]).to_parquet(PROCESSED, index=False)
     print(f"Saved cleaned purchases to {PROCESSED.relative_to(ROOT)}")
 
@@ -227,6 +267,8 @@ def main():
         "purchases_by_hour": by_hour,
         "purchases_by_weekday": by_day,
         "conversion_funnel": funnel_table(funnel_users),
+        "brand_funnel": brand_conversion(brand_funnel),
+        "price_tier_by_segment": price_tiers(purchases, rfm),
         "data_quality": pd.DataFrame([qa]),
     }
     for name, table in tables.items():

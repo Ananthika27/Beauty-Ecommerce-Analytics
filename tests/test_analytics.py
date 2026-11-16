@@ -82,3 +82,32 @@ def test_basket_lift():
     pairs, n = basket.brand_pairs(df, min_pair_orders=10)
     assert n == 400 and len(pairs) == 2
     assert pairs["lift"].iloc[0] == pytest.approx(2.0)   # 0.5 / (0.5 * 0.5)
+
+
+def test_rescale_hits_target_rate_and_keeps_ranking():
+    import numpy as np
+    p = np.array([0.02, 0.05, 0.1, 0.3, 0.6])
+    q = cm.rescale_to_rate(p, 0.10)
+    assert q.mean() == pytest.approx(0.10, abs=1e-4)
+    assert list(np.argsort(q)) == list(np.argsort(p))
+
+
+def test_break_even_and_roi():
+    import economics as ec
+    # AOV 40, margin 30%, contact costs 0.60 -> need +5pp conversion to break even
+    assert ec.break_even_uplift(40, 0.30, 0.60) == pytest.approx(0.05)
+    at_break_even = ec.campaign_roi(1000, 40, 0.05, 0.30, 0.60)
+    assert at_break_even["profit"] == pytest.approx(0.0, abs=1e-9)
+    assert ec.campaign_roi(1000, 40, 0.10, 0.30, 0.60)["roi"] == pytest.approx(1.0)
+
+
+def test_engagement_features_only_use_past_events():
+    eng = pd.DataFrame({
+        "user_id": [1, 1, 1],
+        "date": pd.to_datetime(["2020-01-10", "2020-01-20", "2020-02-10"]),
+        "event_type": ["view", "cart", "view"],
+        "events": [5, 2, 100],
+    })
+    f = cm.engagement_features(eng, "2020-02-01")
+    assert f.loc[1, "views_total"] == 5 and f.loc[1, "carts_total"] == 2   # Feb 10 excluded
+    assert f.loc[1, "days_since_last_activity"] == 12
