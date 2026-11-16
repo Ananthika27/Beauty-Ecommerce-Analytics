@@ -1,0 +1,15 @@
+{
+  "name": "Beauty Analytics",
+  "dataColors": ["#2F6FB0", "#E7298A", "#1B9E77", "#D95F02", "#7570B3", "#E6AB02", "#66A61E", "#999999"],
+  "background": "#FFFFFF",
+  "foreground": "#1F2937",
+  "tableAccent": "#2F6FB0",
+  "textClasses": {
+    "title": { "fontFace": "Segoe UI Semibold", "fontSize": 14, "color": "#1F2937" },
+    "label": { "fontFace": "Segoe UI", "fontSize": 10, "color": "#4B5563" },
+    "callout": { "fontFace": "Segoe UI Semibold", "fontSize": 28, "color": "#2F6FB0" }
+  },
+  "visualStyles": {
+    "*": { "*": { "border": [{ "show": false }], "title": [{ "show": true, "fontSize": 12 }] } }
+  }
+}

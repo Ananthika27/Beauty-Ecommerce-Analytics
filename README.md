@@ -162,6 +162,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 │   ├── churn_model.py     # next-month purchase model for buyers
 │   ├── conversion_model.py# first-purchase model for browsers
 │   ├── economics.py       # campaign break-even / ROI (assumption-driven)
+│   ├── powerbi_export.py  # star-schema CSVs for Power BI
 │   ├── basket.py          # brand co-purchase / market-basket analysis
 │   └── charts.py          # charts for this README
 ├── app/dashboard.py       # Streamlit dashboard
@@ -174,7 +175,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 ├── images/                # charts used above
 ├── outputs/               # generated tables (git-ignored; used by Power BI)
 ├── data/                  # raw monthly CSVs (git-ignored)
-├── dashboard/             # Power BI files
+├── dashboard/             # Power BI guide, DAX measures, theme
 └── requirements.txt
 ```
 
@@ -183,7 +184,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 ```bash
 pip install -r requirements.txt
 # download the dataset from Kaggle and place the five monthly CSVs in data/
-make all                   # pipeline -> model -> basket -> charts (a few minutes)
+make all                   # pipeline -> models -> basket -> charts -> Power BI tables (about 10 minutes)
 make test                  # 17 unit tests
 make app                   # interactive dashboard
 ```
@@ -192,4 +193,4 @@ Or run the scripts individually: `python src/pipeline.py`, `python src/churn_mod
 
 ## Power BI dashboard
 
-Load the CSVs in `outputs/` into Power BI. Suggested pages: customer overview, RFM segments, revenue by segment, repeat purchase, monthly trend, cohort retention, and brand/product performance by segment.
+`make powerbi` writes a clean star-schema (14 CSVs) to `outputs/powerbi/`. The `dashboard/` folder contains everything needed to build the report: `BUILD_GUIDE.md` (relationships and a 6-page layout), `measures.dax` (all DAX measures) and `theme.json`. A `.pbix` is a binary file that must be created inside Power BI, so add yours as `dashboard/Beauty_Ecommerce_Analytics.pbix` and screenshots to `images/`.

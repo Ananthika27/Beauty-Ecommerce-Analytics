@@ -1,0 +1,77 @@
+// ============================================================
+// DAX measures. Create them in a table called "_Measures"
+// (Home > Enter Data > name it _Measures) or on fact_customers.
+// ============================================================
+
+// ---------- Customers (table: fact_customers) ----------
+Customers = DISTINCTCOUNT ( fact_customers[user_id] )
+
+Revenue = SUM ( fact_customers[total_spent] )
+
+Customers % of Total =
+DIVIDE ( [Customers], CALCULATE ( [Customers], ALL ( fact_customers ) ) )
+
+Revenue % of Total =
+DIVIDE ( [Revenue], CALCULATE ( [Revenue], ALL ( fact_customers ) ) )
+
+Avg Spend per Customer = DIVIDE ( [Revenue], [Customers] )
+
+Avg Orders per Customer = AVERAGE ( fact_customers[orders] )
+
+Avg Days Since Last Order = AVERAGE ( fact_customers[recency] )
+
+// ---------- Repeat purchase ----------
+Repeat Customers = CALCULATE ( [Customers], fact_customers[orders] > 1 )
+
+Repeat Rate = DIVIDE ( [Repeat Customers], [Customers] )
+
+Repeat Revenue Share =
+DIVIDE ( CALCULATE ( [Revenue], fact_customers[orders] > 1 ), [Revenue] )
+
+// ---------- Retention model ----------
+Avg Purchase Probability = AVERAGE ( fact_customers[purchase_probability] )
+
+Win-Back Customers =
+CALCULATE (
+    [Customers],
+    fact_customers[probability_band] = "Low (<10%)",
+    dim_segment[segment] IN { "High Value Lost", "At Risk High Value" }
+)
+
+Win-Back Historic Spend =
+CALCULATE (
+    [Revenue],
+    fact_customers[probability_band] = "Low (<10%)",
+    dim_segment[segment] IN { "High Value Lost", "At Risk High Value" }
+)
+
+// ---------- Monthly trend (table: fact_monthly) ----------
+Monthly Revenue = SUM ( fact_monthly[total_revenue] )
+
+Monthly Orders = SUM ( fact_monthly[orders] )
+
+Revenue per Order = DIVIDE ( [Monthly Revenue], [Monthly Orders] )
+
+Revenue MoM % =
+VAR i = MAX ( fact_monthly[month_index] )
+VAR prev =
+    CALCULATE ( SUM ( fact_monthly[total_revenue] ), fact_monthly[month_index] = i - 1, ALL ( fact_monthly ) )
+RETURN
+    IF ( ISBLANK ( prev ), BLANK (), DIVIDE ( [Monthly Revenue] - prev, prev ) )
+
+// ---------- Cohorts (table: fact_cohort) ----------
+Avg Retention % = AVERAGE ( fact_cohort[retention_pct] )
+
+// ---------- Funnel (table: fact_funnel) ----------
+Funnel Users = SUM ( fact_funnel[users] )
+
+Funnel % of Viewers = AVERAGE ( fact_funnel[pct_of_viewers] ) / 100
+
+// ---------- Brand (table: fact_segment_brand_top10) ----------
+Brand Sales = SUM ( fact_segment_brand_top10[total_sales] )
+
+Brand Share of Segment Sales =
+DIVIDE (
+    [Brand Sales],
+    CALCULATE ( [Brand Sales], ALLEXCEPT ( fact_segment_brand_top10, fact_segment_brand_top10[segment] ) )
+)
