@@ -95,6 +95,34 @@ I ran the same pipeline, unchanged, on a **different retailer**: the Kaggle *mul
 
 Outputs: `outputs/multicat/`. Reproduce with `python src/pipeline.py --data-dir data_external/multicat --out-dir outputs/multicat` then `python src/generalization_check.py`.
 
+## A longer window: Online Retail (12 months)
+
+The cosmetics data covers only five months, which limits retention and lifetime-value validation. I ran the same RFM, cohort and lifetime-value code on the UCI **Online Retail** dataset (Dec 2010 – Dec 2011, 397,885 sales lines, 4,338 customers). These are mostly wholesale-style buyers, so the *numbers* differ a lot from a consumer cosmetics store. The point is that the **methods** work over a full year.
+
+| | Cosmetics (5 months) | Online Retail (12 months) |
+| --- | ---: | ---: |
+| Repeat customers | 21.1% | 65.6% |
+| Revenue from repeat customers | 48.0% | 93.1% |
+| Champions: share of customers / revenue | 3.5% / 16.9% | 23.9% / 65.2% |
+| Month-2 retention (best cohort) | 18.5% | 36.6% (Dec 2010 cohort) |
+| Returns (cancelled invoices, by value) | not recorded | 6.9% |
+
+![Retail CLV](images/retail_clv_validation.png)
+
+**Lifetime value on a 6-month holdout** (fit on the first 6 months, predict the last 6):
+
+| | Cosmetics (60 days) | Online Retail (183 days) |
+| --- | ---: | ---: |
+| BG/NBD rank correlation with actual orders | 0.53 | **0.81** |
+| Naive "same rate as before" baseline | 0.42 | 0.74 |
+| Top 10% of customers' share of actual spend | 50% | 51% |
+| Predicted vs actual total orders | +30% (over) | **-18%** (under: 5,590 vs 6,837) |
+
+- BG/NBD beats the naive baseline on both datasets, and the top decile carries about half of all spend on both, so the ranking is reliable.
+- **Total-order error flips sign** between datasets (over-predicts when the customer base is filling with new buyers, under-predicts here). So predicted *totals* should not be trusted; ranking can.
+- **A real failure mode, found and handled:** on this data the BG/NBD dropout parameters collapse towards zero (few customers ever "die" in a year of wholesale buying), the optimiser needed stronger regularisation (penalizer 0.1), and 394 of 4,338 customers (9%) got undefined predictions. The code now retries with stronger regularisation, falls back to each customer's own order rate for those, and reports the fallback count (`fallback_customers` in `clv_validation.csv`).
+- Reproduce: `python src/online_retail.py data_external/online_retail_II.csv` (the loader also handles this file's carriage-return line endings and US-format dates).
+
 ## Cart abandonment and brand conversion
 
 - Of **983,953 sessions with an item in the cart, 857,691 (87%) ended without a purchase**.
@@ -241,7 +269,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 ## Engineering practices
 
 - **Reproducible:** one command rebuilds every table and chart from the raw files.
-- **Tested:** 21 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
+- **Tested:** 23 tests cover segment rules, orders-vs-items counting, **leakage** (future purchases or browsing must not change snapshot features), rate rescaling, campaign break-even and basket lift maths; CI runs them on every push.
 - **Validated inputs:** the pipeline checks the schema, event types and the share of unusable rows and stops with a clear error instead of producing wrong numbers.
 - **Portable:** `Dockerfile` for one-command runs (image built, dashboard served and all tests passed inside the container), and `python src/pipeline.py --data-dir ... --out-dir ...` to run on another dataset with the same schema.
 - **Deployable demo:** `demo_data/` lets the dashboard run anywhere without the 2.4 GB raw data (for example Streamlit Community Cloud with main file `app/dashboard.py`).
@@ -250,12 +278,12 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 
 ## Data and method notes
 
-- **Sources:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events (main analysis); *Dunnhumby The Complete Journey* (Kaggle) for the campaign-uplift analysis only; and the *multi-category store* (Kaggle) for a generalisation check only. The datasets are never merged.
+- **Sources:** *eCommerce Events History in Cosmetics Shop* (Kaggle), 20,692,840 raw events (main analysis); *Dunnhumby The Complete Journey* (Kaggle) for the campaign-uplift analysis only; the *multi-category store* (Kaggle) for a generalisation check; and *Online Retail* (UCI/Kaggle, 12 months) for a longer-window lifetime-value and returns check. The datasets are never merged.
 - **Cleaning:** removed 104,288 rows with non-positive prices, 4,597 with no session ID and 898 duplicate purchases, leaving **1,285,982 purchase rows** across 110,518 customers.
 - **Orders vs items:** each purchase row is one item, so an *order* is a distinct `user_session`. Counting items would badly overstate repeat buying.
 - **Revenue** is the sum of item prices on purchase events (the dataset does not state a currency). Timestamps are UTC.
 - **Limitations, and how each was handled:**
-  - *Only five months of data:* no longer-running cosmetics data exists in this source, so instead the main findings were checked on a second store, all model results come from a true out-of-time test with bootstrap confidence intervals, and "lost" customers are defined by recency within this window.
+  - *Only five months of data:* no longer-running cosmetics data exists in this source, so instead the main findings were checked on a second store, the methods were run over a 12-month window (Online Retail), all model results come from a true out-of-time test with bootstrap confidence intervals, and "lost" customers are defined by recency within this window.
   - *Data unused before:* 19.4M view/cart events were ignored. They now drive the browsing features (+0.058 AUC), the browser model, cart-abandonment and brand-conversion analysis.
   - *Categories:* `category_code` is missing for about 96% of cosmetics revenue and cannot be recovered, so brand is used as the product dimension (real category names are used on the second store, where 89.5% of revenue has them); price tiers were tested but did not separate segments (about 70% of sales are premium-tier in every segment).
   - *No campaign records:* uplift was measured on a second dataset (Dunnhumby) with placebo and pre-trend checks. It showed that naive estimates are heavily inflated by selection. *No margin or campaign cost* remain explicit, adjustable assumptions.
@@ -277,7 +305,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 │   ├── explain.py         # SHAP explanations
 │   ├── economics.py       # campaign break-even / ROI (assumption-driven)
 │   ├── validation.py      # input checks
-│   ├── online_retail.py   # run the methods on a second dataset
+│   ├── online_retail.py   # methods on a 12-month dataset (+ returns)
 │   ├── make_demo_data.py  # small sample for deploying the dashboard
 │   ├── powerbi_export.py  # star-schema CSVs for Power BI
 │   ├── basket.py          # brand co-purchase / market-basket analysis
@@ -305,7 +333,7 @@ November (Black Friday season) is the peak month for customers and revenue; Dece
 pip install -r requirements.txt
 # download the dataset from Kaggle and place the five monthly CSVs in data/
 make all                   # pipeline -> models -> basket -> charts -> Power BI tables (about 10 minutes)
-make test                  # 21 unit tests
+make test                  # 23 unit tests
 make app                   # interactive dashboard
 make docker                # or run the dashboard in Docker (uses the demo sample)
 ```

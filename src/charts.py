@@ -131,3 +131,15 @@ ax.set_xticks(list(x)); ax.set_xticklabels(lib["model"]); ax.set_ylim(0.8, 0.84)
 ax.set_title("Algorithm choice barely matters"); ax.legend(frameon=False)
 save(fig, "library_comparison.png")
 print("Uplift + library charts saved")
+
+# ---- Online Retail: lifetime value validation on a 6-month holdout ----
+retail = OUT / "online_retail" / "clv_validation_deciles.csv"
+if retail.exists():
+    rv = pd.read_csv(retail)
+    fig, ax = plt.subplots(figsize=(7.5, 4))
+    ax.bar(rv["decile"] - 0.2, rv["predicted_value"] / 1e3, 0.4, color=GREY, label="Predicted")
+    ax.bar(rv["decile"] + 0.2, rv["actual_value"] / 1e3, 0.4, color=BLUE, label="Actual")
+    ax.set_xlabel("Predicted-value decile (1 = highest)"); ax.set_ylabel("Spend in final 6 months (thousands)")
+    ax.set_title("Online Retail: lifetime value predicted vs actual (holdout)"); ax.legend(frameon=False)
+    save(fig, "retail_clv_validation.png")
+    print("Retail chart saved")

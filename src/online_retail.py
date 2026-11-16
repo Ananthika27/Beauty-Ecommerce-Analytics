@@ -1,7 +1,10 @@
-"""Run the analytics on the UCI / Kaggle "Online Retail II" dataset (2009-2011, 24 months).
+"""Run the analytics on the UCI / Kaggle "Online Retail" datasets.
 
-Why: a second, longer dataset to check that the methods generalise, and to validate
-lifetime value over a much longer window (including returns).
+Supports both versions: Online Retail (Dec 2010 - Dec 2011, 12 months) and
+Online Retail II (Dec 2009 - Dec 2011, 24 months).
+
+Why: a longer window than the cosmetics data, to validate lifetime value on a
+large holdout and to measure returns.
 
 Expected columns: Invoice, StockCode, Description, Quantity, InvoiceDate, Price,
 Customer ID, Country  (older versions: InvoiceNo, UnitPrice, CustomerID).
@@ -29,8 +32,20 @@ def load_raw(path):
         sheets = pd.read_excel(path, sheet_name=None)            # Online Retail II has 2 sheets
         raw = pd.concat(sheets.values(), ignore_index=True)
     else:
-        raw = pd.read_csv(path, encoding="latin-1")
+        # Some copies of this file use old Mac line endings (carriage return only)
+        with open(path, "rb") as f:
+            head = f.read(1_000_000)
+        newline = "\r" if b"\n" not in head and b"\r" in head else None
+        raw = pd.read_csv(path, encoding="latin-1", lineterminator=newline)
     return raw.rename(columns=RENAMES)
+
+
+def parse_dates(values):
+    """Accept '12/1/10 8:26' (US, 2-digit year) or ISO timestamps."""
+    parsed = pd.to_datetime(values, format="%m/%d/%y %H:%M", errors="coerce")
+    if parsed.isna().mean() > 0.5:
+        parsed = pd.to_datetime(values, errors="coerce")
+    return parsed.dt.tz_localize("UTC")
 
 
 def to_common_schema(raw):
@@ -47,7 +62,7 @@ def to_common_schema(raw):
     }
     sales = df[~cancelled & (df["Quantity"] > 0) & (df["Price"] > 0)]
     purchases = pd.DataFrame({
-        "event_time": pd.to_datetime(sales["InvoiceDate"], utc=True),
+        "event_time": parse_dates(sales["InvoiceDate"]),
         "user_id": sales["Customer ID"].astype(int),
         "user_session": sales["Invoice"],
         "product_id": sales["StockCode"].astype(str),

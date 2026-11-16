@@ -36,6 +36,12 @@ def main():
     for name in ["generalization_summary", "generalization_model", "top_categories", "category_coverage"]:
         pd.read_csv(OUT / "multicat" / f"{name}.csv").to_csv(DEMO / f"multicat_{name}.csv", index=False)
 
+    retail = OUT / "online_retail"
+    if retail.exists():
+        for name in ["repeat_purchase_summary", "segment_revenue_analysis", "clv_validation", "clv_validation_deciles",
+                     "returns_summary", "cohort_retention"]:
+            pd.read_csv(retail / f"{name}.csv").to_csv(DEMO / f"retail_{name}.csv", index=False)
+
     browsers = pd.read_csv(OUT / "browser_conversion_scores.csv").nlargest(2000, "conversion_probability")
     browsers.to_csv(DEMO / "browser_conversion_scores.csv", index=False)
 

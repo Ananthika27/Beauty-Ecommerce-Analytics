@@ -1,0 +1,2 @@
+holdout_days,predicted_orders,actual_orders,correlation_bgnbd,correlation_naive,top_decile_share_of_actual_value_pct,penalizer,fallback_customers
+183,5590,6837,0.8072,0.7401,51.42,0.1,394

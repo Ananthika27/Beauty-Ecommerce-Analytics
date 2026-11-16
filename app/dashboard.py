@@ -19,8 +19,10 @@ st.set_page_config(page_title="Beauty E-Commerce Customer Intelligence", layout=
 @st.cache_data
 def load(name):
     # Full results keep second-store tables in outputs/multicat/; the demo sample prefixes them instead
-    if name.startswith("multicat_") and OUT.name != "demo_data":
-        return pd.read_csv(OUT / "multicat" / f"{name[len('multicat_'):]}.csv")
+    if OUT.name != "demo_data":
+        for prefix, folder in (("multicat_", "multicat"), ("retail_", "online_retail")):
+            if name.startswith(prefix):
+                return pd.read_csv(OUT / folder / f"{name[len(prefix):]}.csv")
     return pd.read_csv(OUT / f"{name}.csv")
 
 
@@ -41,8 +43,8 @@ c2.metric("Revenue", f"{total_rev:,.0f}")
 c3.metric("Repeat customers", f"{repeat_row['customer_percentage']:.1f}%")
 c4.metric("Revenue from repeaters", f"{repeat_row['revenue_percentage']:.1f}%")
 
-tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_uplift, tab_second, tab_roi, tab_browse, tab_brand = st.tabs(
-    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Measured uplift", "Second store", "Campaign ROI", "Browser conversion", "Brand affinity"]
+tab_seg, tab_trend, tab_cohort, tab_model, tab_clv, tab_uplift, tab_other, tab_roi, tab_browse, tab_brand = st.tabs(
+    ["Segments", "Monthly trend", "Cohorts & funnel", "Retention model", "Lifetime value", "Measured uplift", "Other datasets", "Campaign ROI", "Browser conversion", "Brand affinity"]
 )
 
 with tab_seg:
@@ -140,7 +142,7 @@ with tab_uplift:
     st.write("**Each campaign**")
     st.dataframe(load("dunnhumby_campaign_uplift").round(2), hide_index=True, width="stretch")
 
-with tab_second:
+with tab_other:
     st.subheader("Do the findings hold on a different store?")
     st.caption("Multi-category store (mostly electronics), Oct-Nov 2019, 697,470 customers. Only two months, so some figures are not like-for-like.")
     st.dataframe(load("multicat_generalization_summary").set_index("dataset").T.astype(str), width="stretch")
@@ -150,6 +152,20 @@ with tab_second:
     cov = load("multicat_category_coverage").iloc[0, 0]
     st.write(f"**Real category names:** {cov:.1f}% of this store's revenue has a category, versus about 4% for cosmetics.")
     st.dataframe(load("multicat_top_categories"), hide_index=True, width="stretch")
+
+    st.divider()
+    st.subheader("A longer window: Online Retail (12 months, wholesale-style customers)")
+    st.caption("4,338 customers, Dec 2010 - Dec 2011. Used to validate lifetime value on a 6-month holdout and to measure returns.")
+    rep = load("retail_repeat_purchase_summary").set_index("customer_type")
+    ret = load("retail_returns_summary").iloc[0]
+    cv = load("retail_clv_validation").iloc[0]
+    r1, r2, r3, r4 = st.columns(4)
+    r1.metric("Repeat customers", f"{rep.loc['Repeat Customer', 'customer_percentage']:.0f}%")
+    r2.metric("Revenue from repeaters", f"{rep.loc['Repeat Customer', 'revenue_percentage']:.0f}%")
+    r3.metric("Returns (by value)", f"{ret['return_rate_by_value_pct']:.1f}%")
+    r4.metric("Lifetime-value rank correlation", f"{cv['correlation_bgnbd']:.2f}", f"naive {cv['correlation_naive']:.2f}", delta_color="off")
+    st.bar_chart(load("retail_clv_validation_deciles").set_index("decile")[["predicted_value", "actual_value"]])
+    st.dataframe(load("retail_segment_revenue_analysis")[["segment", "customers", "customer_percentage", "revenue_percentage"]].round(1), hide_index=True, width="stretch")
 
 with tab_roi:
     st.subheader("Is a retention campaign worth it?")

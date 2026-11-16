@@ -175,3 +175,38 @@ def test_uplift_estimator_recovers_known_effect_and_zero_placebo():
     assert cu.stratified_did(post - pre, treated, strata) == pytest.approx(20.0, abs=3.0)
     fake = rng.random(n) < 0.3                              # random "targeting": no effect
     assert abs(cu.stratified_did(post - pre, fake, strata)) < 3.0
+
+
+def test_online_retail_loads_carriage_return_csv_and_us_dates(tmp_path):
+    import online_retail as orr
+    csv = ("Invoice,StockCode,Description,Quantity,InvoiceDate,Price,Customer ID,Country\r"
+           "536365,85123A,LIGHT,6,12/1/10 8:26,2.55,17850,United Kingdom\r"
+           "536366,71053,LANTERN,2,12/9/10 13:05,3.39,17851,France\r")
+    path = tmp_path / "retail.csv"
+    path.write_bytes(csv.encode("latin-1"))
+    raw = orr.load_raw(path)
+    assert len(raw) == 2
+    purchases, _ = orr.to_common_schema(raw)
+    assert purchases["event_time"].dt.month.tolist() == [12, 12]
+    assert purchases["event_time"].dt.day.tolist() == [1, 9]          # month/day not swapped
+
+
+def test_clv_fallback_handles_nan_predictions():
+    import numpy as np
+    import clv
+
+    class DegenerateModel:                       # mimics a BG/NBD fit with a, b -> 0
+        def conditional_expected_number_of_purchases_up_to_time(self, days, f, r, T):
+            return pd.Series([np.nan, 2.0], index=f.index)
+        def conditional_probability_alive(self, f, r, T):
+            return pd.Series([np.nan, 0.9], index=f.index)
+
+    class FlatGG:
+        def conditional_expected_average_profit(self, f, m):
+            return m
+
+    summary = pd.DataFrame({"frequency": [4, 1], "recency": [50, 20], "T": [100, 100], "monetary_value": [30.0, 40.0]})
+    out = clv.predict_clv(DegenerateModel(), FlatGG(), summary, 100)
+    assert out["used_fallback"].tolist() == [True, False]
+    assert out["pred_orders"].iloc[0] == pytest.approx(4.0)   # own rate: 4 orders / 100 days x 100 days
+    assert not out["pred_value"].isna().any()
